@@ -69,13 +69,13 @@ const SettingsPanel = ({
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-gray-900 rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-auto border border-gray-700">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Settings</h2>
+            <h2 className="text-2xl font-bold text-white">Settings</h2>
             <button
-              className="text-gray-500 hover:text-gray-700"
+              className="text-gray-400 hover:text-gray-200 transition-colors"
               onClick={onClose}
             >
               ✕
@@ -84,23 +84,23 @@ const SettingsPanel = ({
           
           {/* Template Settings */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Template</h3>
-            <p className="text-sm text-gray-600 mb-2">
+            <h3 className="text-lg font-semibold text-indigo-300 mb-2">Template</h3>
+            <p className="text-sm text-gray-400 mb-2">
               Use {'{item}'} as a placeholder for each item when copying to clipboard.
             </p>
             <input
               type="text"
               value={templateText}
               onChange={(e) => setTemplateText(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md"
+              className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md text-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               placeholder="Template (e.g. {item})"
             />
           </div>
           
           {/* Sticky Items */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Sticky Items</h3>
-            <p className="text-sm text-gray-600 mb-2">
+            <h3 className="text-lg font-semibold text-indigo-300 mb-2">Sticky Items</h3>
+            <p className="text-sm text-gray-400 mb-2">
               Sticky items won't move when randomizing. Click to toggle.
             </p>
             <div className="flex flex-wrap gap-2">
@@ -110,10 +110,10 @@ const SettingsPanel = ({
                   className={`
                     px-3 py-1 text-sm rounded-full
                     ${sticky.includes(index)
-                      ? 'bg-yellow-200 border-yellow-400'
-                      : 'bg-gray-100 border-gray-300'}
+                      ? 'bg-yellow-900 border-yellow-600 text-yellow-300'
+                      : 'bg-gray-800 border-gray-700 text-gray-300'}
                     border
-                    hover:bg-yellow-100
+                    hover:bg-opacity-80
                     transition-colors
                   `}
                   onClick={() => handleStickyToggle(index)}
@@ -126,14 +126,14 @@ const SettingsPanel = ({
           
           {/* List Editor */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Edit List</h3>
-            <p className="text-sm text-gray-600 mb-2">
+            <h3 className="text-lg font-semibold text-indigo-300 mb-2">Edit List</h3>
+            <p className="text-sm text-gray-400 mb-2">
               One item per line. Changes will update the URL.
             </p>
             <textarea
               value={itemsText}
               onChange={(e) => setItemsText(e.target.value)}
-              className="w-full h-40 p-2 border border-gray-300 rounded-md font-mono text-sm"
+              className="w-full h-40 p-2 bg-gray-800 border border-gray-700 rounded-md font-mono text-sm text-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               placeholder="Enter items, one per line"
             />
           </div>
@@ -141,7 +141,7 @@ const SettingsPanel = ({
           {/* Save Button */}
           <div className="flex justify-end">
             <button
-              className="px-4 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+              className="px-5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-lg hover:from-indigo-500 hover:to-purple-500 transition-colors shadow-lg"
               onClick={handleSave}
             >
               Save Changes

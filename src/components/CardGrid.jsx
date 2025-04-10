@@ -1,7 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
-import { gsap } from 'gsap';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useGSAP } from '@gsap/react';
+import gsap from 'gsap';
+
+// Register the useGSAP plugin
+gsap.registerPlugin(useGSAP);
+
 import Card from './Card';
 import { isSticky } from '../utils/URLManager';
+import { getRandomAnimation } from '../animations'; // Import the random animation getter
 
 /**
  * CardGrid component for displaying and managing the grid of cards
@@ -11,14 +17,20 @@ import { isSticky } from '../utils/URLManager';
  * @param {Array} props.sticky - Array of sticky item indices
  * @param {Function} props.onReorder - Callback for when items are reordered
  * @param {Function} props.onToggleSticky - Callback for toggling sticky status
+ * @param {Object} ref - Forwarded ref for parent component to access methods
  */
-const CardGrid = ({ items, sticky = [], onReorder, onToggleSticky }) => {
+const CardGrid = forwardRef(({ items, sticky = [], onReorder, onToggleSticky }, ref) => {
   const gridRef = useRef(null);
   const [positions, setPositions] = useState([]);
   const [gridDimensions, setGridDimensions] = useState({ width: 0, height: 0 });
-  
+  const [isAnimating, setIsAnimating] = useState(false); // State to track animation status
+  const isMounted = useRef(false); // Track initial mount
+
+  console.log('[CardGrid] Rendering. Items:', items, 'Is Animating:', isAnimating);
+
   // Calculate grid dimensions and initial positions
   useEffect(() => {
+    console.log('[CardGrid] Grid Dimensions Effect running.');
     if (gridRef.current) {
       const updateDimensions = () => {
         const { width, height } = gridRef.current.getBoundingClientRect();
@@ -35,6 +47,7 @@ const CardGrid = ({ items, sticky = [], onReorder, onToggleSticky }) => {
   
   // Calculate initial positions for cards in a grid layout
   useEffect(() => {
+    console.log('[CardGrid] Positions Effect running. Grid Width:', gridDimensions.width, 'Items Length:', items.length);
     if (gridDimensions.width > 0 && items.length > 0) {
       // Card dimensions (including margin)
       const cardWidth = 140; // 132px + margins
@@ -54,10 +67,19 @@ const CardGrid = ({ items, sticky = [], onReorder, onToggleSticky }) => {
         };
       });
       
+      console.log('[CardGrid] Calculated new positions:', newPositions);
       setPositions(newPositions);
+      isMounted.current = true; // Mark as mounted after first position calculation
     }
-  }, [items, gridDimensions]);
+  }, [items, gridDimensions]); // Rerun when items or grid dimensions change
   
+  // Log when positions state changes AFTER initial mount
+  useEffect(() => {
+    if (isMounted.current) {
+      console.log('[CardGrid] Positions state updated:', positions);
+    }
+  }, [positions]);
+
   // Handle card drag end
   const handleDragEnd = (index, x, y) => {
     // Create a copy of current positions
@@ -123,37 +145,133 @@ const CardGrid = ({ items, sticky = [], onReorder, onToggleSticky }) => {
     }
   };
   
-  // Shuffle animation
+  // Expose the animateShuffle method to parent component via ref
+  useImperativeHandle(ref, () => ({
+    animateShuffle
+  }));
+  
+  // Shuffle animation using gsap.context, returns a Promise
   const animateShuffle = (newOrder) => {
-    // Animate each card to its new position
-    newOrder.forEach((itemIndex, newIndex) => {
-      // Skip sticky items
-      if (!isSticky(itemIndex, sticky)) {
-        gsap.to(`#card-${itemIndex}`, {
-          x: positions[newIndex].x,
-          y: positions[newIndex].y,
-          rotation: gsap.utils.random(-5, 5),
-          duration: 0.8,
-          ease: 'back.out(1.2)',
-          delay: gsap.utils.random(0, 0.3)
+    return new Promise((resolve) => { // Wrap in a Promise
+      console.log('[CardGrid] animateShuffle called with newOrder:', newOrder);
+      console.log('[CardGrid] Current positions state:', positions);
+    console.log('[CardGrid] Grid dimensions:', gridDimensions);
+    
+    // Set animating state to true
+    console.log('[CardGrid] Setting isAnimating to true');
+    setIsAnimating(true);
+    
+    // Create a context for this animation
+    const context = gsap.context(() => {
+      // Store references to all card elements
+      const cardElements = {};
+      newOrder.forEach((itemIndex) => {
+        const cardElement = document.getElementById(`card-${itemIndex}`);
+        if (cardElement) {
+          cardElements[itemIndex] = cardElement;
+        } else {
+          console.warn(`[CardGrid] Could not find card element for index: ${itemIndex}`);
+        }
+      });
+
+      // Get the bounding rect for the grid *once*
+      const gridRect = gridRef.current.getBoundingClientRect();
+
+      // Create a timeline for the entire animation
+      const mainTimeline = gsap.timeline({
+        onComplete: () => {
+          console.log('[CardGrid] Main animation timeline complete.');
+          
+          // Ensure all cards are precisely at their final calculated positions
+          newOrder.forEach((itemIndex, newIndex) => {
+            const cardElement = cardElements[itemIndex];
+            if (!cardElement) return;
+            
+            if (positions[newIndex]) {
+              const finalX = positions[newIndex].x;
+              const finalY = positions[newIndex].y;
+              
+              // Use gsap.set for immediate placement without animation
+              gsap.set(cardElement, { 
+                x: finalX, 
+                y: finalY,
+                rotation: 0, // Reset rotation if needed
+                scale: 1,    // Reset scale if needed
+                force3D: true // Maintain GPU acceleration
+              });
+              
+              console.log(`[CardGrid] Card ${itemIndex} - Final position forced to: X=${finalX}, Y=${finalY}`);
+            } else {
+               console.warn(`[CardGrid] No final position found for newIndex: ${newIndex}`);
+            }
+          });
+          
+          // Turn off animation state
+          console.log('[CardGrid] Setting isAnimating to false');
+          setIsAnimating(false);
+          
+          // Resolve the promise
+          console.log('[CardGrid] Resolving animation promise.');
+          resolve(); 
+        }
+      });
+
+      // --- Select and Execute Random Animation ---
+      const selectedAnimation = getRandomAnimation();
+
+      if (selectedAnimation) {
+        console.log('[CardGrid] Executing selected animation...');
+        try {
+          selectedAnimation({
+            elements: cardElements,
+            newOrder,
+            positions,
+            gridDimensions,
+            gridRect, // Pass the calculated gridRect
+            sticky,
+            timeline: mainTimeline // Pass the timeline for the animation to add to
+          });
+        } catch (error) {
+           console.error("[CardGrid] Error executing animation function:", error);
+           // Potentially resolve the promise here if animation fails critically
+           // resolve(); // Or handle error differently
+        }
+      } else {
+        console.warn("[CardGrid] No animation function selected or available. Skipping animation.");
+        // If no animation runs, we still need to resolve the promise
+        // We can do this immediately or after a minimal delay
+        gsap.delayedCall(0.1, () => {
+           console.log('[CardGrid] No animation ran, resolving promise.');
+           resolve();
         });
       }
-    });
+      // --- End Animation Execution ---
+
+    }, gridRef); // Scope GSAP context to gridRef
+    }); // End of Promise
+    
+    // Note: The context cleanup is handled implicitly by useGSAP when the component unmounts
+    // or dependencies change, so explicitly returning context.revert() might not be necessary
+    // unless specific cleanup timing is required outside the component lifecycle.
   };
   
   return (
     <div 
       id="card-grid"
       ref={gridRef}
-      className="card-grid relative w-full min-h-[400px] p-4 bg-gray-50 rounded-lg"
+      className="card-grid relative w-full min-h-[400px] p-6 bg-gray-800 rounded-lg shadow-xl border border-gray-700"
     >
       {items.map((item, index) => (
         <div
           key={`${item}-${index}`}
           id={`card-${index}`}
           className="absolute"
+          // Always maintain the transform style, but let GSAP override it during animation
+          // This prevents the cards from jumping to origin (0,0) when animation starts
           style={{
-            transform: `translate(${positions[index]?.x || 0}px, ${positions[index]?.y || 0}px)`
+            transform: `translate(${positions[index]?.x || 0}px, ${positions[index]?.y || 0}px)`,
+            // Add a pointer-events property to prevent interaction during animation
+            pointerEvents: isAnimating ? 'none' : 'auto'
           }}
         >
           <Card
@@ -167,6 +285,6 @@ const CardGrid = ({ items, sticky = [], onReorder, onToggleSticky }) => {
       ))}
     </div>
   );
-};
+});
 
 export default CardGrid;

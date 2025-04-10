@@ -21,30 +21,30 @@ const Header = ({ onRandomize, onToggleSettings }) => {
       onRandomize();
     }
     
-    // Reset animation state after animation completes
+    // Reset animation state after animation completes (increased to match full animation duration)
     setTimeout(() => {
       setIsAnimating(false);
-    }, 1000);
+    }, 2600);
   };
   
   return (
-    <header className="flex flex-col md:flex-row justify-between items-center p-4 bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg shadow-sm mb-4">
+    <header className="flex flex-col md:flex-row justify-between items-center p-6 bg-gradient-to-r from-indigo-900 to-purple-900 rounded-lg shadow-lg mb-6 border border-indigo-700">
       <div className="flex items-center mb-4 md:mb-0">
-        <h1 className="text-3xl font-bold text-gray-800">
+        <h1 className="text-3xl font-bold text-white">
           Rando
         </h1>
-        <span className="ml-2 text-sm text-gray-600">List Randomizer</span>
+        <span className="ml-2 text-sm text-indigo-300">List Randomizer</span>
       </div>
       
       <div className="flex space-x-3">
         <button
           className={`
-            px-4 py-2
-            bg-gradient-to-r from-purple-500 to-indigo-600
+            px-5 py-2
+            bg-gradient-to-r from-pink-600 to-purple-600
             text-white font-medium
             rounded-lg
-            shadow-md
-            hover:shadow-lg
+            shadow-lg
+            hover:from-pink-500 hover:to-purple-500
             transition-all
             ${isAnimating ? 'animate-pulse' : ''}
           `}
@@ -56,13 +56,14 @@ const Header = ({ onRandomize, onToggleSettings }) => {
         
         <button
           className="
-            px-4 py-2
-            bg-gray-200
-            text-gray-700 font-medium
+            px-5 py-2
+            bg-gray-800
+            text-gray-200 font-medium
             rounded-lg
-            shadow-md
-            hover:bg-gray-300
+            shadow-lg
+            hover:bg-gray-700
             transition-all
+            border border-gray-700
           "
           onClick={onToggleSettings}
         >
