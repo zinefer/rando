@@ -1,30 +1,21 @@
-import { useState } from 'react';
-
 /**
  * Header component with title and randomize button
  * 
  * @param {Object} props
  * @param {Function} props.onRandomize - Callback for when the randomize button is clicked
  * @param {Function} props.onToggleSettings - Callback to toggle settings panel
+ * @param {boolean} props.isAnimating - Whether the randomize animation is currently running
  */
-const Header = ({ onRandomize, onToggleSettings }) => {
-  const [isAnimating, setIsAnimating] = useState(false);
+const Header = ({ onRandomize, onToggleSettings, isAnimating }) => {
   
   const handleRandomizeClick = () => {
-    // Prevent multiple clicks during animation
+    // Prevent multiple clicks during animation (check prop)
     if (isAnimating) return;
     
-    setIsAnimating(true);
-    
-    // Call the randomize callback
+    // Call the randomize callback (parent now handles state)
     if (onRandomize) {
       onRandomize();
     }
-    
-    // Reset animation state after animation completes (increased to match full animation duration)
-    setTimeout(() => {
-      setIsAnimating(false);
-    }, 2600);
   };
   
   return (

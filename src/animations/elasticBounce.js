@@ -1,5 +1,6 @@
 import gsap from 'gsap';
-import { isSticky } from '../utils/URLManager';
+import { shouldAnimateCard } from '../utils/AnimationHelper';
+import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 
 // Helper function to clamp values
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
@@ -28,9 +29,9 @@ export function elasticBounce({ elements, newOrder, positions, gridDimensions, g
   const viewportH = window.innerHeight;
   const padding = 20; // Padding from viewport edges
 
-  // Card dimensions (assuming fixed size for now)
-  const cardWidth = 132; 
-  const cardHeight = 132;
+  // Card dimensions from constants
+  const cardWidth = BASE_CARD_WIDTH; 
+  const cardHeight = BASE_CARD_HEIGHT;
 
   // Create a stagger effect by grouping cards
   const staggerGroups = 3; // Number of stagger groups
@@ -44,11 +45,13 @@ export function elasticBounce({ elements, newOrder, positions, gridDimensions, g
 
   newOrder.forEach((itemIndex, newIndex) => {
     const cardElement = elements[itemIndex];
-    // Skip if element doesn't exist or is sticky
-    if (!cardElement || isSticky(itemIndex, sticky)) {
-      if (isSticky(itemIndex, sticky)) {
-        console.log(`[elasticBounce] Card ${itemIndex} is sticky, skipping animation`);
-      }
+    // Skip if element doesn't exist or should not be animated
+    if (!cardElement) {
+      return;
+    }
+    
+    if (!shouldAnimateCard(itemIndex, sticky)) {
+      console.log(`[elasticBounce] Card ${itemIndex} skipping animation based on settings`);
       return;
     }
 
@@ -146,7 +149,21 @@ export function elasticBounce({ elements, newOrder, positions, gridDimensions, g
       scale: 1,
       duration: 0.7,
       ease: "elastic.out(1, 0.5)", // Elastic easing for bouncy finish
-      force3D: true
+      force3D: true,
+      onComplete: () => {
+        // Log the final position after animation completes
+        const finalAnimX = gsap.getProperty(cardElement, "x");
+        const finalAnimY = gsap.getProperty(cardElement, "y");
+        console.log(`[elasticBounce] Card ${itemIndex} animation completed. Final animated position: X=${finalAnimX}, Y=${finalAnimY}`);
+        
+        // Check if the final animated position matches the target position
+        const diffX = Math.abs(finalAnimX - finalX);
+        const diffY = Math.abs(finalAnimY - finalY);
+        
+        if (diffX > 0.1 || diffY > 0.1) {
+          console.warn(`[elasticBounce] Card ${itemIndex} final position mismatch! Target: (${finalX}, ${finalY}), Actual: (${finalAnimX}, ${finalAnimY}), Diff: (${diffX.toFixed(2)}, ${diffY.toFixed(2)})`);
+        }
+      }
     });
     
     // Add this card's timeline to the main timeline

@@ -1,5 +1,6 @@
 import gsap from 'gsap';
-import { isSticky } from '../utils/URLManager';
+import { shouldAnimateCard } from '../utils/AnimationHelper';
+import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 
 // Helper function to clamp values
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
@@ -28,9 +29,9 @@ export function swirlVortex({ elements, newOrder, positions, gridDimensions, gri
   const viewportH = window.innerHeight;
   const padding = 20; // Padding from viewport edges
 
-  // Card dimensions
-  const cardWidth = 132; 
-  const cardHeight = 132;
+  // Card dimensions from constants
+  const cardWidth = BASE_CARD_WIDTH; 
+  const cardHeight = BASE_CARD_HEIGHT;
 
   // Vortex parameters
   const maxRadius = Math.min(gridDimensions.width, gridDimensions.height) * 0.4;
@@ -43,11 +44,13 @@ export function swirlVortex({ elements, newOrder, positions, gridDimensions, gri
 
   newOrder.forEach((itemIndex, newIndex) => {
     const cardElement = elements[itemIndex];
-    // Skip if element doesn't exist or is sticky
-    if (!cardElement || isSticky(itemIndex, sticky)) {
-      if (isSticky(itemIndex, sticky)) {
-        console.log(`[swirlVortex] Card ${itemIndex} is sticky, skipping animation`);
-      }
+    // Skip if element doesn't exist or should not be animated
+    if (!cardElement) {
+      return;
+    }
+    
+    if (!shouldAnimateCard(itemIndex, sticky)) {
+      console.log(`[swirlVortex] Card ${itemIndex} skipping animation based on settings`);
       return;
     }
 

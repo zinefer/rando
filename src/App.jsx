@@ -8,7 +8,18 @@ import Header from './components/Header';
 import CardGrid from './components/CardGrid';
 import SettingsPanel from './components/SettingsPanel';
 import { parseURLParams, updateURL, toggleSticky } from './utils/URLManager';
-import { setupClipboardShortcut, showNotification } from './utils/ClipboardManager';
+import { setupClipboardShortcut, showNotification, copyItemsToClipboard } from './utils/ClipboardManager';
+import { 
+  loadTemplate, 
+  saveTemplate, 
+  loadTabSwitchAnimation, 
+  saveTabSwitchAnimation,
+  loadAutoCopy,
+  saveAutoCopy,
+  loadAnimateStickyCards,
+  saveAnimateStickyCards
+} from './utils/LocalStorageManager';
+import { runTabSwitchAnimation } from './animations';
 
 function App() {
   // State for items, sticky indices, and template
@@ -19,25 +30,65 @@ function App() {
   // State for settings panel
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
+  // State for header button animation
+  const [isHeaderAnimating, setHeaderIsAnimating] = useState(false);
+  
   // State for copy notification
   const [showCopyNotification, setShowCopyNotification] = useState(false);
   
-  // Load items from URL on mount
+  // State for tab switch animation, auto copy, and animate sticky cards
+  const [tabSwitchAnimation, setTabSwitchAnimation] = useState(false);
+  const [autoCopy, setAutoCopy] = useState(false);
+  const [animateStickyCards, setAnimateStickyCards] = useState(false);
+  
+  // Reference to CardGrid component
+  const cardGridRef = useRef(null);
+  
+  // Load items from URL and settings from local storage on mount
   useEffect(() => {
-    console.log('[App] Mounting & Loading from URL');
+    console.log('[App] Mounting & Loading from URL and local storage');
+    
+    // Load from URL
     const { items: urlItems, sticky: urlSticky, template: urlTemplate } = parseURLParams();
+    
+    // Load settings from local storage
+    const storedTemplate = loadTemplate();
+    const storedTabSwitchAnimation = loadTabSwitchAnimation();
+    const storedAutoCopy = loadAutoCopy();
+    const storedAnimateStickyCards = loadAnimateStickyCards();
+    
+    // Set template (prioritize URL over local storage)
+    const finalTemplate = urlTemplate || storedTemplate || '{item}';
+    setTemplate(finalTemplate);
+    
+    // Set tab switch animation, auto copy, and animate sticky cards
+    if (storedTabSwitchAnimation !== null) {
+      setTabSwitchAnimation(storedTabSwitchAnimation);
+    }
+    
+    if (storedAutoCopy !== null) {
+      setAutoCopy(storedAutoCopy);
+    }
+    
+    if (storedAnimateStickyCards !== null) {
+      setAnimateStickyCards(storedAnimateStickyCards);
+    }
     
     // If no items in URL, set default items
     if (urlItems.length === 0) {
       const defaultItems = ['Item 1', 'Item 2', 'Item 3', 'Item 4', 'Item 5'];
       setItems(defaultItems);
-      updateURL(defaultItems, [], '{item}');
+      updateURL(defaultItems, [], finalTemplate);
     } else {
       setItems(urlItems);
       setSticky(urlSticky);
-      setTemplate(urlTemplate);
     }
   }, []);
+  
+  // Save template to local storage when it changes
+  useEffect(() => {
+    saveTemplate(template);
+  }, [template]);
   
   // Log when items state changes
   useEffect(() => {
@@ -62,15 +113,72 @@ function App() {
     }
   }, [showCopyNotification]);
   
-  // Reference to CardGrid component
-  const cardGridRef = useRef(null);
+  // Set up tab visibility change detection
+  useEffect(() => {
+    if (!tabSwitchAnimation) return;
+    
+    let isAnimating = false; // Local flag to prevent multiple animations
+    
+    const handleVisibilityChange = () => {
+      // Only run animation if tab becomes visible and we're not already animating
+      if (document.visibilityState === 'visible' && !isAnimating) {
+        console.log('[App] Tab became visible, running animation');
+        isAnimating = true; // Set flag to prevent multiple animations
+        
+        // Get all card elements
+        const cardElements = {};
+        items.forEach((_, index) => {
+          const cardElement = document.getElementById(`card-${index}`);
+          if (cardElement) {
+            cardElements[index] = cardElement;
+          }
+        });
+        
+        // Run animation if we have card elements and positions
+        if (Object.keys(cardElements).length > 0 && cardGridRef.current) {
+          const positions = cardGridRef.current.getPositions?.() || [];
+          const gridDimensions = cardGridRef.current.getGridDimensions?.() || { width: 0, height: 0 };
+          
+          // Get the grid element to calculate its rect
+          const gridElement = document.getElementById('card-grid');
+          const gridRect = gridElement ? gridElement.getBoundingClientRect() : null;
+          
+          if (positions.length > 0 && gridDimensions.width > 0) {
+            // Run the animation and reset the flag when done
+            const timeline = runTabSwitchAnimation(cardElements, positions, gridDimensions, gridRect, sticky);
+            if (timeline) {
+              timeline.eventCallback('onComplete', () => {
+                isAnimating = false;
+              });
+            } else {
+              // If no timeline was returned, reset the flag
+              isAnimating = false;
+            }
+          } else {
+            isAnimating = false;
+          }
+        } else {
+          isAnimating = false;
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [tabSwitchAnimation, items, sticky]);
   
   // Randomize items (async to wait for animation)
   const handleRandomize = async () => { // Make the function async
     console.log('[App] handleRandomize triggered. Current items:', items);
     console.log('[App] Current sticky indices:', sticky);
     
-    // Create a copy of the items array
+    setHeaderIsAnimating(true); // Start header animation
+    
+    try { // Wrap in try...finally to ensure state is reset
+      // Create a copy of the items array
     const newItems = [...items];
     console.log('[App] Original items array (copy):', newItems);
     
@@ -188,6 +296,19 @@ function App() {
         setItems(shuffledItems);
         updateURL(shuffledItems, sticky, template);
         
+        // Auto-copy to clipboard if enabled
+        if (autoCopy) {
+          console.log('[App] Auto-copying to clipboard');
+          const success = await copyItemsToClipboard(shuffledItems, template, () => {
+            setShowCopyNotification(true);
+            setTimeout(() => setShowCopyNotification(false), 2000);
+          });
+          
+          if (!success) {
+            console.error('[App] Failed to auto-copy to clipboard');
+          }
+        }
+        
       } catch (error) {
         console.error('[App] Error during animation or state update:', error);
         // Optionally reset state or handle error appropriately
@@ -197,11 +318,24 @@ function App() {
       // Fallback: Update state immediately if animation cannot run
       setItems(shuffledItems);
       updateURL(shuffledItems, sticky, template);
+      
+      // Auto-copy to clipboard if enabled
+      if (autoCopy) {
+        console.log('[App] Auto-copying to clipboard');
+        await copyItemsToClipboard(shuffledItems, template, () => {
+          setShowCopyNotification(true);
+          setTimeout(() => setShowCopyNotification(false), 2000);
+        });
+      }
+      
       if (!cardGridRef.current) {
         console.error('[App] cardGridRef.current is null');
       } else if (!cardGridRef.current.animateShuffle) {
         console.error('[App] cardGridRef.current.animateShuffle is not a function');
       }
+    }
+    } finally {
+      setHeaderIsAnimating(false); // Stop header animation regardless of success/failure
     }
   };
   
@@ -235,6 +369,24 @@ function App() {
     updateURL(items, sticky, newTemplate);
   };
   
+  // Handle updating tab switch animation
+  const handleUpdateTabSwitchAnimation = (enabled) => {
+    setTabSwitchAnimation(enabled);
+    saveTabSwitchAnimation(enabled);
+  };
+  
+  // Handle updating auto copy
+  const handleUpdateAutoCopy = (enabled) => {
+    setAutoCopy(enabled);
+    saveAutoCopy(enabled);
+  };
+  
+  // Handle updating animate sticky cards
+  const handleUpdateAnimateStickyCards = (enabled) => {
+    setAnimateStickyCards(enabled);
+    saveAnimateStickyCards(enabled);
+  };
+  
   console.log('[App] Rendering...');
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-indigo-950 p-4 md:p-8 text-gray-100">
@@ -242,6 +394,7 @@ function App() {
         <Header 
           onRandomize={handleRandomize} 
           onToggleSettings={() => setIsSettingsOpen(true)} 
+          isAnimating={isHeaderAnimating} // Pass down animation state
         />
         
         {items.length > 0 ? (
@@ -260,16 +413,23 @@ function App() {
         
         <div className="mt-4 text-center text-sm text-gray-400">
           Press Ctrl+C to copy the list to clipboard
+          {autoCopy && <span> (Auto-copy on randomize is enabled)</span>}
         </div>
         
         <SettingsPanel 
           isOpen={isSettingsOpen} 
           items={items} 
           sticky={sticky} 
-          template={template} 
+          template={template}
+          tabSwitchAnimation={tabSwitchAnimation}
+          autoCopy={autoCopy}
+          animateStickyCards={animateStickyCards}
           onUpdateItems={handleUpdateItems} 
           onUpdateSticky={setSticky} 
-          onUpdateTemplate={handleUpdateTemplate} 
+          onUpdateTemplate={handleUpdateTemplate}
+          onUpdateTabSwitchAnimation={handleUpdateTabSwitchAnimation}
+          onUpdateAutoCopy={handleUpdateAutoCopy}
+          onUpdateAnimateStickyCards={handleUpdateAnimateStickyCards}
           onClose={() => setIsSettingsOpen(false)} 
         />
         
@@ -278,6 +438,18 @@ function App() {
             List copied to clipboard!
           </div>
         )}
+        
+        {/* Footer */}
+        <div className="mt-8 text-center text-sm text-gray-400">
+          <a 
+            href="https://github.com/zinefer" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="hover:text-indigo-400 transition-colors"
+          >
+            Made with 💖 by Zinefer
+          </a>
+        </div>
       </div>
     </div>
   );

@@ -2,6 +2,8 @@ import { useRef, useEffect } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { Draggable } from 'gsap/Draggable';
+import { getDisplayName, shouldStretch } from '../utils/URLManager';
+import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 
 // Register the plugins
 gsap.registerPlugin(Draggable, useGSAP);
@@ -10,7 +12,7 @@ gsap.registerPlugin(Draggable, useGSAP);
  * Card component for displaying an individual item
  * 
  * @param {Object} props
- * @param {String} props.item - The item text to display
+ * @param {String|Object} props.item - The item (string or object with name/export properties)
  * @param {Number} props.index - The index of the item in the list
  * @param {Boolean} props.isSticky - Whether the item is sticky (won't shuffle)
  * @param {Function} props.onDragEnd - Callback for when dragging ends
@@ -19,6 +21,12 @@ gsap.registerPlugin(Draggable, useGSAP);
 const Card = ({ item, index, isSticky, onDragEnd, onToggleSticky }) => {
   const cardRef = useRef(null);
   const draggableRef = useRef(null);
+  
+  // Get the display name for the item
+  const displayName = getDisplayName(item);
+  
+  // Check if the display name should be stretched (emoji or two characters)
+  const shouldStretchDisplay = shouldStretch(displayName);
   
   // Generate a complementary color based on the item text
   const generateColor = (text) => {
@@ -33,7 +41,7 @@ const Card = ({ item, index, isSticky, onDragEnd, onToggleSticky }) => {
     return `hsl(${hue}, 70%, 65%)`;
   };
   
-  const borderColor = generateColor(item);
+  const borderColor = generateColor(displayName);
   
   // Set up draggable functionality using useEffect
   useEffect(() => {
@@ -48,9 +56,16 @@ const Card = ({ item, index, isSticky, onDragEnd, onToggleSticky }) => {
       
       // Create new draggable instance
       console.log(`[Card ${index}] Creating new draggable instance`);
+      
+      // Make sure the card-grid element exists before creating the draggable
+      const gridElement = document.querySelector('.card-grid');
+      if (!gridElement) {
+        console.error(`[Card ${index}] Could not find .card-grid element for bounds`);
+      }
+      
       draggableRef.current = Draggable.create(cardRef.current, {
         type: 'x,y',
-        bounds: '.card-grid',
+        bounds: gridElement || null,
         edgeResistance: 0.65,
         onDragStart: function() {
           console.log(`[Card ${index}] Drag started at x:${this.x}, y:${this.y}`);
@@ -74,9 +89,14 @@ const Card = ({ item, index, isSticky, onDragEnd, onToggleSticky }) => {
           // Compare with Draggable's position tracking
           console.log(`[Card ${index}] Draggable position tracking: x:${this.x}, y:${this.y}`);
           
+          // Get the element's bounding client rect for absolute position
+          const rect = cardRef.current.getBoundingClientRect();
+          console.log(`[Card ${index}] DOM position: left:${rect.left}, top:${rect.top}, width:${rect.width}, height:${rect.height}`);
+          
           // Check for discrepancies
           if (Math.abs(gsapX - this.x) > 0.1 || Math.abs(gsapY - this.y) > 0.1) {
             console.warn(`[Card ${index}] Position tracking discrepancy between GSAP and Draggable!`);
+            console.warn(`[Card ${index}] Difference: x:${(gsapX - this.x).toFixed(2)}, y:${(gsapY - this.y).toFixed(2)}`);
           }
           
           if (onDragEnd) {
@@ -107,7 +127,6 @@ const Card = ({ item, index, isSticky, onDragEnd, onToggleSticky }) => {
       data-card-index={index}
       className={`
         relative
-        w-32 h-32
         flex items-center justify-center
         bg-gray-900
         rounded-lg
@@ -122,6 +141,8 @@ const Card = ({ item, index, isSticky, onDragEnd, onToggleSticky }) => {
         border border-gray-700
       `}
       style={{
+        width: `${BASE_CARD_WIDTH}px`,
+        height: `${BASE_CARD_HEIGHT}px`,
         borderLeft: `4px solid ${borderColor}`,
         boxShadow: isSticky ? '0 0 15px rgba(234, 179, 8, 0.3)' : '0 0 15px rgba(0, 0, 0, 0.3)'
       }}
@@ -132,9 +153,17 @@ const Card = ({ item, index, isSticky, onDragEnd, onToggleSticky }) => {
       )}
       
       {/* Card content */}
-      <p className="text-center p-2 text-gray-100 font-medium break-words">
-        {item}
-      </p>
+      {shouldStretchDisplay ? (
+        <div className="flex items-center justify-center w-full h-full">
+          <span className="text-6xl" style={{ fontSize: '5rem', lineHeight: '1' }}>
+            {displayName}
+          </span>
+        </div>
+      ) : (
+        <p className="text-center p-2 text-gray-100 font-medium break-words">
+          {displayName}
+        </p>
+      )}
       
       {/* Sticky toggle button */}
       <button

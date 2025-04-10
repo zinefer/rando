@@ -1,5 +1,6 @@
 import gsap from 'gsap';
-import { isSticky } from '../utils/URLManager';
+import { shouldAnimateCard } from '../utils/AnimationHelper';
+import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 
 /**
  * tornado Animation: Cards form a powerful tornado funnel, swirling at different speeds
@@ -17,9 +18,9 @@ import { isSticky } from '../utils/URLManager';
 export function tornado({ elements, newOrder, positions, gridDimensions, gridRect, sticky, timeline }) {
   console.log('[tornado] Animating cards...');
 
-  // Card dimensions
-  const cardWidth = 132; 
-  const cardHeight = 132;
+  // Card dimensions from constants
+  const cardWidth = BASE_CARD_WIDTH; 
+  const cardHeight = BASE_CARD_HEIGHT;
 
   // Calculate grid center point
   const gridCenterX = gridDimensions.width / 2;
@@ -33,31 +34,33 @@ export function tornado({ elements, newOrder, positions, gridDimensions, gridRec
   const tornadoDuration = 2.5; // Duration of the main tornado phase
   const debrisChance = 0.3; // Chance for a card to become "debris" (temporarily leave the funnel)
   
-  // Get non-sticky cards
-  const nonStickyIndices = newOrder.filter(index => !isSticky(index, sticky));
+  // Get cards that should be animated
+  const animatableIndices = newOrder.filter(index => shouldAnimateCard(index, sticky));
   
-  if (nonStickyIndices.length === 0) {
-    console.log('[tornado] No non-sticky cards to animate');
+  if (animatableIndices.length === 0) {
+    console.log('[tornado] No cards to animate based on settings');
     return;
   }
 
   // Assign each card a "height level" in the tornado
   // Cards will be distributed throughout the funnel height
   const heightLevels = {};
-  nonStickyIndices.forEach((itemIndex, i) => {
+  animatableIndices.forEach((itemIndex, i) => {
     // Distribute cards evenly throughout the tornado height
     // 0 = bottom of tornado, 1 = top of tornado
-    heightLevels[itemIndex] = i / (nonStickyIndices.length - 1 || 1);
+    heightLevels[itemIndex] = i / (animatableIndices.length - 1 || 1);
   });
 
   // Process each card
   newOrder.forEach((itemIndex, newIndex) => {
     const cardElement = elements[itemIndex];
-    // Skip if element doesn't exist or is sticky
-    if (!cardElement || isSticky(itemIndex, sticky)) {
-      if (isSticky(itemIndex, sticky)) {
-        console.log(`[tornado] Card ${itemIndex} is sticky, skipping animation`);
-      }
+    // Skip if element doesn't exist or should not be animated
+    if (!cardElement) {
+      return;
+    }
+    
+    if (!shouldAnimateCard(itemIndex, sticky)) {
+      console.log(`[tornado] Card ${itemIndex} skipping animation based on settings`);
       return;
     }
 

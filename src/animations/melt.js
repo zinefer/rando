@@ -1,5 +1,6 @@
 import gsap from 'gsap';
-import { isSticky } from '../utils/URLManager';
+import { shouldAnimateCard } from '../utils/AnimationHelper';
+import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 
 /**
  * melt Animation: Cards liquefy, flow together, and then reform in their new positions
@@ -17,9 +18,9 @@ import { isSticky } from '../utils/URLManager';
 export function melt({ elements, newOrder, positions, gridDimensions, gridRect, sticky, timeline }) {
   console.log('[melt] Animating cards...');
 
-  // Card dimensions
-  const cardWidth = 132; 
-  const cardHeight = 132;
+  // Card dimensions from constants
+  const cardWidth = BASE_CARD_WIDTH; 
+  const cardHeight = BASE_CARD_HEIGHT;
 
   // Calculate grid center point
   const gridCenterX = gridDimensions.width / 2;
@@ -33,22 +34,24 @@ export function melt({ elements, newOrder, positions, gridDimensions, gridRect, 
   const maxDripCount = 3; // Maximum number of drips per card
   const dripChance = 0.7; // Chance for a card to have drips
   
-  // Get non-sticky cards
-  const nonStickyIndices = newOrder.filter(index => !isSticky(index, sticky));
+  // Get cards that should be animated
+  const animatableIndices = newOrder.filter(index => shouldAnimateCard(index, sticky));
   
-  if (nonStickyIndices.length === 0) {
-    console.log('[melt] No non-sticky cards to animate');
+  if (animatableIndices.length === 0) {
+    console.log('[melt] No cards to animate based on settings');
     return;
   }
 
   // Process each card
   newOrder.forEach((itemIndex, newIndex) => {
     const cardElement = elements[itemIndex];
-    // Skip if element doesn't exist or is sticky
-    if (!cardElement || isSticky(itemIndex, sticky)) {
-      if (isSticky(itemIndex, sticky)) {
-        console.log(`[melt] Card ${itemIndex} is sticky, skipping animation`);
-      }
+    // Skip if element doesn't exist or should not be animated
+    if (!cardElement) {
+      return;
+    }
+    
+    if (!shouldAnimateCard(itemIndex, sticky)) {
+      console.log(`[melt] Card ${itemIndex} skipping animation based on settings`);
       return;
     }
 

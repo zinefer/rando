@@ -1,5 +1,6 @@
 import gsap from 'gsap';
-import { isSticky } from '../utils/URLManager'; // Assuming this utility is needed here
+import { shouldAnimateCard } from '../utils/AnimationHelper';
+import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 
 // Helper function to clamp values
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
@@ -24,17 +25,19 @@ export function flyAndSpin({ elements, newOrder, positions, gridDimensions, grid
   const viewportH = window.innerHeight;
   const padding = 50; // Padding from viewport edges
 
-  // Card dimensions (assuming fixed size for now, might need dynamic calculation)
-  const cardWidth = 132; 
-  const cardHeight = 132; 
+  // Card dimensions from constants
+  const cardWidth = BASE_CARD_WIDTH; 
+  const cardHeight = BASE_CARD_HEIGHT; 
 
   newOrder.forEach((itemIndex, newIndex) => {
     const cardElement = elements[itemIndex];
-    // Ensure the element exists and isn't sticky
-    if (!cardElement || isSticky(itemIndex, sticky)) {
-      if (isSticky(itemIndex, sticky)) {
-        console.log(`[flyAndSpin] Card ${itemIndex} is sticky, skipping animation`);
-      }
+    // Skip if element doesn't exist or should not be animated
+    if (!cardElement) {
+      return;
+    }
+    
+    if (!shouldAnimateCard(itemIndex, sticky)) {
+      console.log(`[flyAndSpin] Card ${itemIndex} skipping animation based on settings`);
       return;
     }
 

@@ -1,5 +1,6 @@
 import gsap from 'gsap';
-import { isSticky } from '../utils/URLManager';
+import { shouldAnimateCard } from '../utils/AnimationHelper';
+import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 
 /**
  * swingChain Animation: Cards swing underneath to their positions, hitting other cards
@@ -17,9 +18,9 @@ import { isSticky } from '../utils/URLManager';
 export function swingChain({ elements, newOrder, positions, gridDimensions, gridRect, sticky, timeline }) {
   console.log('[swingChain] Animating cards...');
 
-  // Card dimensions
-  const cardWidth = 132; 
-  const cardHeight = 132;
+  // Card dimensions from constants
+  const cardWidth = BASE_CARD_WIDTH; 
+  const cardHeight = BASE_CARD_HEIGHT;
 
   // Create a map to track which positions are occupied and when they'll be vacated
   const positionOccupancy = {};
@@ -50,16 +51,16 @@ export function swingChain({ elements, newOrder, positions, gridDimensions, grid
   });
 
   // Determine the swing chain order
-  // We'll start with a random non-sticky card and follow the chain
-  const nonStickyIndices = newOrder.filter(index => !isSticky(index, sticky));
+  // We'll start with a random card that should be animated
+  const animatableIndices = newOrder.filter(index => shouldAnimateCard(index, sticky));
   
-  if (nonStickyIndices.length === 0) {
-    console.log('[swingChain] No non-sticky cards to animate');
+  if (animatableIndices.length === 0) {
+    console.log('[swingChain] No cards to animate based on settings');
     return;
   }
 
   // Start with a random card
-  const startIndex = nonStickyIndices[Math.floor(Math.random() * nonStickyIndices.length)];
+  const startIndex = animatableIndices[Math.floor(Math.random() * animatableIndices.length)];
   
   // Build the swing chain
   const swingChain = [];
@@ -79,8 +80,8 @@ export function swingChain({ elements, newOrder, positions, gridDimensions, grid
     // Find which card is currently at this position
     const nextCard = positionOccupancy[destPosKey]?.occupiedBy;
     
-    // If the next card is sticky or already processed, break the chain
-    if (nextCard === undefined || isSticky(nextCard, sticky) || processedIndices.has(nextCard)) {
+    // If the next card should not be animated or already processed, break the chain
+    if (nextCard === undefined || !shouldAnimateCard(nextCard, sticky) || processedIndices.has(nextCard)) {
       currentIndex = undefined;
     } else {
       currentIndex = nextCard;
@@ -90,18 +91,18 @@ export function swingChain({ elements, newOrder, positions, gridDimensions, grid
   console.log('[swingChain] Swing chain:', swingChain);
   
   // If we have a very short chain, add some random cards to make it more interesting
-  if (swingChain.length < 3 && nonStickyIndices.length > 3) {
-    const remainingCards = nonStickyIndices.filter(idx => !swingChain.includes(idx));
+  if (swingChain.length < 3 && animatableIndices.length > 3) {
+    const remainingCards = animatableIndices.filter(idx => !swingChain.includes(idx));
     const additionalCards = remainingCards.slice(0, Math.min(3, remainingCards.length));
     swingChain.push(...additionalCards);
     console.log('[swingChain] Added additional cards to chain:', additionalCards);
   }
   
-  // If we still don't have enough cards for a good animation, just animate all non-sticky cards
-  if (swingChain.length < 3 && nonStickyIndices.length > 0) {
+  // If we still don't have enough cards for a good animation, just animate all animatable cards
+  if (swingChain.length < 3 && animatableIndices.length > 0) {
     swingChain.length = 0; // Clear the chain
-    swingChain.push(...nonStickyIndices); // Use all non-sticky cards
-    console.log('[swingChain] Using all non-sticky cards:', swingChain);
+    swingChain.push(...animatableIndices); // Use all animatable cards
+    console.log('[swingChain] Using all animatable cards:', swingChain);
   }
 
   // Animation timing parameters
@@ -243,8 +244,8 @@ export function swingChain({ elements, newOrder, positions, gridDimensions, grid
   
   // Now handle all other cards that weren't part of the main swing chain
   newOrder.forEach((itemIndex, newIndex) => {
-    // Skip if card is sticky, already in the swing chain, or element doesn't exist
-    if (isSticky(itemIndex, sticky) || swingChain.includes(itemIndex) || !elements[itemIndex]) {
+    // Skip if card should not be animated, already in the swing chain, or element doesn't exist
+    if (!shouldAnimateCard(itemIndex, sticky) || swingChain.includes(itemIndex) || !elements[itemIndex]) {
       return;
     }
     

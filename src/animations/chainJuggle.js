@@ -1,5 +1,7 @@
 import gsap from 'gsap';
 import { isSticky } from '../utils/URLManager';
+import { shouldAnimateCard } from '../utils/AnimationHelper';
+import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 
 /**
  * chainJuggle Animation: Cards juggle in a chain reaction, with each card jumping up
@@ -17,9 +19,9 @@ import { isSticky } from '../utils/URLManager';
 export function chainJuggle({ elements, newOrder, positions, gridDimensions, gridRect, sticky, timeline }) {
   console.log('[chainJuggle] Animating cards...');
 
-  // Card dimensions
-  const cardWidth = 132; 
-  const cardHeight = 132;
+  // Card dimensions from constants
+  const cardWidth = BASE_CARD_WIDTH; 
+  const cardHeight = BASE_CARD_HEIGHT;
 
   // Create a map to track which positions are occupied and when they'll be vacated
   const positionOccupancy = {};
@@ -50,16 +52,16 @@ export function chainJuggle({ elements, newOrder, positions, gridDimensions, gri
   });
 
   // Determine the juggling chain order
-  // We'll start with a random non-sticky card and follow the chain
-  const nonStickyIndices = newOrder.filter(index => !isSticky(index, sticky));
+  // We'll start with a random card that should be animated
+  const animatableIndices = newOrder.filter(index => shouldAnimateCard(index, sticky));
   
-  if (nonStickyIndices.length === 0) {
-    console.log('[chainJuggle] No non-sticky cards to animate');
+  if (animatableIndices.length === 0) {
+    console.log('[chainJuggle] No cards to animate based on settings');
     return;
   }
 
   // Start with a random card
-  const startIndex = nonStickyIndices[Math.floor(Math.random() * nonStickyIndices.length)];
+  const startIndex = animatableIndices[Math.floor(Math.random() * animatableIndices.length)];
   
   // Build the juggling chain
   const jugglingChain = [];
@@ -79,8 +81,8 @@ export function chainJuggle({ elements, newOrder, positions, gridDimensions, gri
     // Find which card is currently at this position
     const nextCard = positionOccupancy[destPosKey]?.occupiedBy;
     
-    // If the next card is sticky or already processed, break the chain
-    if (nextCard === undefined || isSticky(nextCard, sticky) || processedIndices.has(nextCard)) {
+    // If the next card should not be animated or already processed, break the chain
+    if (nextCard === undefined || !shouldAnimateCard(nextCard, sticky) || processedIndices.has(nextCard)) {
       currentIndex = undefined;
     } else {
       currentIndex = nextCard;
@@ -90,18 +92,18 @@ export function chainJuggle({ elements, newOrder, positions, gridDimensions, gri
   console.log('[chainJuggle] Juggling chain:', jugglingChain);
   
   // If we have a very short chain, add some random cards to make it more interesting
-  if (jugglingChain.length < 3 && nonStickyIndices.length > 3) {
-    const remainingCards = nonStickyIndices.filter(idx => !jugglingChain.includes(idx));
+  if (jugglingChain.length < 3 && animatableIndices.length > 3) {
+    const remainingCards = animatableIndices.filter(idx => !jugglingChain.includes(idx));
     const additionalCards = remainingCards.slice(0, Math.min(3, remainingCards.length));
     jugglingChain.push(...additionalCards);
     console.log('[chainJuggle] Added additional cards to chain:', additionalCards);
   }
   
-  // If we still don't have enough cards for a good animation, just animate all non-sticky cards
-  if (jugglingChain.length < 3 && nonStickyIndices.length > 0) {
+  // If we still don't have enough cards for a good animation, just animate all animatable cards
+  if (jugglingChain.length < 3 && animatableIndices.length > 0) {
     jugglingChain.length = 0; // Clear the chain
-    jugglingChain.push(...nonStickyIndices); // Use all non-sticky cards
-    console.log('[chainJuggle] Using all non-sticky cards:', jugglingChain);
+    jugglingChain.push(...animatableIndices); // Use all animatable cards
+    console.log('[chainJuggle] Using all animatable cards:', jugglingChain);
   }
 
   // Animation timing parameters
@@ -174,8 +176,8 @@ export function chainJuggle({ elements, newOrder, positions, gridDimensions, gri
   
   // Now handle all other cards that weren't part of the main juggling chain
   newOrder.forEach((itemIndex, newIndex) => {
-    // Skip if card is sticky, already in the juggling chain, or element doesn't exist
-    if (isSticky(itemIndex, sticky) || jugglingChain.includes(itemIndex) || !elements[itemIndex]) {
+    // Skip if card should not be animated, already in the juggling chain, or element doesn't exist
+    if (!shouldAnimateCard(itemIndex, sticky) || jugglingChain.includes(itemIndex) || !elements[itemIndex]) {
       return;
     }
     

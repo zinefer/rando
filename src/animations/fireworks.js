@@ -1,5 +1,6 @@
 import gsap from 'gsap';
-import { isSticky } from '../utils/URLManager';
+import { shouldAnimateCard } from '../utils/AnimationHelper';
+import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 
 /**
  * fireworks Animation: Cards gather in the center, then explode outward like fireworks
@@ -17,9 +18,9 @@ import { isSticky } from '../utils/URLManager';
 export function fireworks({ elements, newOrder, positions, gridDimensions, gridRect, sticky, timeline }) {
   console.log('[fireworks] Animating cards...');
 
-  // Card dimensions
-  const cardWidth = 132; 
-  const cardHeight = 132;
+  // Card dimensions from constants
+  const cardWidth = BASE_CARD_WIDTH; 
+  const cardHeight = BASE_CARD_HEIGHT;
 
   // Calculate grid center point
   const gridCenterX = gridDimensions.width / 2;
@@ -34,7 +35,7 @@ export function fireworks({ elements, newOrder, positions, gridDimensions, gridR
   const trailCount = 3; // Number of trail elements to create for each card
   
   // Get non-sticky cards
-  const nonStickyIndices = newOrder.filter(index => !isSticky(index, sticky));
+  const nonStickyIndices = newOrder.filter(index => true);
   
   if (nonStickyIndices.length === 0) {
     console.log('[fireworks] No non-sticky cards to animate');
@@ -61,11 +62,13 @@ export function fireworks({ elements, newOrder, positions, gridDimensions, gridR
   // Process each card
   newOrder.forEach((itemIndex, newIndex) => {
     const cardElement = elements[itemIndex];
-    // Skip if element doesn't exist or is sticky
-    if (!cardElement || isSticky(itemIndex, sticky)) {
-      if (isSticky(itemIndex, sticky)) {
-        console.log(`[fireworks] Card ${itemIndex} is sticky, skipping animation`);
-      }
+    // Skip if element doesn't exist or should not be animated
+    if (!cardElement) {
+      return;
+    }
+    
+    if (!shouldAnimateCard(itemIndex, sticky)) {
+      console.log(`[fireworks] Card ${itemIndex} skipping animation based on settings`);
       return;
     }
 

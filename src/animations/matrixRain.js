@@ -1,5 +1,6 @@
 import gsap from 'gsap';
-import { isSticky } from '../utils/URLManager';
+import { shouldAnimateCard } from '../utils/AnimationHelper';
+import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 
 // Helper function to clamp values
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
@@ -28,9 +29,9 @@ export function matrixRain({ elements, newOrder, positions, gridDimensions, grid
   const viewportH = window.innerHeight;
   const padding = 20; // Padding from viewport edges
 
-  // Card dimensions
-  const cardWidth = 132; 
-  const cardHeight = 132;
+  // Card dimensions from constants
+  const cardWidth = BASE_CARD_WIDTH; 
+  const cardHeight = BASE_CARD_HEIGHT;
 
   // Matrix rain parameters
   const maxFallHeight = -gridDimensions.height; // Start above the grid
@@ -56,11 +57,13 @@ export function matrixRain({ elements, newOrder, positions, gridDimensions, grid
   // Process each card
   newOrder.forEach((itemIndex, newIndex) => {
     const cardElement = elements[itemIndex];
-    // Skip if element doesn't exist or is sticky
-    if (!cardElement || isSticky(itemIndex, sticky)) {
-      if (isSticky(itemIndex, sticky)) {
-        console.log(`[matrixRain] Card ${itemIndex} is sticky, skipping animation`);
-      }
+    // Skip if element doesn't exist or should not be animated
+    if (!cardElement) {
+      return;
+    }
+    
+    if (!shouldAnimateCard(itemIndex, sticky)) {
+      console.log(`[matrixRain] Card ${itemIndex} skipping animation based on settings`);
       return;
     }
 
