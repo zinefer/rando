@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useLayoutEffect, createRef } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 
@@ -26,6 +26,11 @@ const CardGrid = forwardRef(({ items, sticky = [], onReorder, onToggleSticky }, 
   const [gridDimensions, setGridDimensions] = useState({ width: 0, height: 0 });
   const [isAnimating, setIsAnimating] = useState(false); // State to track animation status
   const isMounted = useRef(false); // Track initial mount
+  const prevItemsRef = useRef([]); // Store previous items for FLIP animations
+  const cardPositionsRef = useRef({}); // Store card positions for FLIP animations
+  const isFlipAnimationPending = useRef(false); // Flag to track if FLIP animation is pending
+  const pendingAnimationOrderRef = useRef(null); // Store the animation order for pending FLIP animation
+  const cardRefs = useRef({}); // Store refs to all card components
 
   console.log('[CardGrid] Rendering. Items:', items, 'Is Animating:', isAnimating);
 
@@ -111,286 +116,158 @@ const CardGrid = forwardRef(({ items, sticky = [], onReorder, onToggleSticky }, 
     }
   }, [items.length, gridDimensions, isAnimating]); // Only depend on items.length, not the entire items array
   
+  // Store previous items when they change
+  useEffect(() => {
+    // Only store previous items if we're already mounted
+    if (isMounted.current) {
+      prevItemsRef.current = [...items];
+    }
+  }, [items]);
+  
+  // Capture card positions before update
+  const captureCardPositions = () => {
+    const positions = {};
+    items.forEach((_, index) => {
+      const cardElement = document.getElementById(`card-${index}`);
+      if (cardElement) {
+        const rect = cardElement.getBoundingClientRect();
+        positions[index] = { 
+          rect,
+          x: gsap.getProperty(cardElement, "x") || 0,
+          y: gsap.getProperty(cardElement, "y") || 0
+        };
+      }
+    });
+    return positions;
+  };
+  
+  // Check if we need to run a FLIP animation after render
+  useLayoutEffect(() => {
+    // Skip on initial render or if no animation is pending
+    if (!isMounted.current || !isFlipAnimationPending.current) return;
+    
+    // Reset the flag
+    isFlipAnimationPending.current = false;
+    
+    // Get the animation order
+    const newOrder = pendingAnimationOrderRef.current;
+    if (!newOrder) return;
+    
+    // Clear the pending animation order
+    pendingAnimationOrderRef.current = null;
+    
+    // Run the FLIP animation
+    performFlipAnimation(newOrder);
+  });
+  
   // Log when positions state changes AFTER initial mount
   useEffect(() => {
     if (isMounted.current) {
       console.log('[CardGrid] Positions state updated:', positions);
     }
   }, [positions]);
-
-  // Handle card drag end
-  const handleDragEnd = (index, x, y) => {
-    // Create a copy of current positions
-    const newPositions = [...positions];
-    
-    // Update the position of the dragged card
-    newPositions[index] = { x, y };
-    
-    // Find the closest position to determine new order
-    const draggedCenter = {
-      x: x + 66, // half of card width
-      y: y + 66  // half of card height
-    };
-    
-    // Find the closest position
-    let closestIndex = index;
-    let closestDistance = Infinity;
-    
-    positions.forEach((pos, i) => {
-      if (i !== index) {
-        const centerX = pos.x + 66;
-        const centerY = pos.y + 66;
-        
-        const distance = Math.sqrt(
-          Math.pow(draggedCenter.x - centerX, 2) + 
-          Math.pow(draggedCenter.y - centerY, 2)
-        );
-        
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestIndex = i;
-        }
-      }
-    });
-    
-    // If the card was dragged close enough to another position, reorder
-    if (closestDistance < 100 && closestIndex !== index) {
-      // Create a new array with the reordered items
-      const newItems = [...items];
-      const [movedItem] = newItems.splice(index, 1);
-      newItems.splice(closestIndex, 0, movedItem);
-      
-      // Update sticky indices if needed
-      const newSticky = sticky.map(stickyIndex => {
-        if (stickyIndex === index) return closestIndex;
-        if (stickyIndex > index && stickyIndex <= closestIndex) return stickyIndex - 1;
-        if (stickyIndex < index && stickyIndex >= closestIndex) return stickyIndex + 1;
-        return stickyIndex;
-      });
-      
-      // Call the onReorder callback with the new order
-      if (onReorder) {
-        onReorder(newItems, newSticky);
-      }
-    } else {
-      // Animate the card back to its original position
-      gsap.to(`#card-${index}`, {
-        x: positions[index].x,
-        y: positions[index].y,
-        duration: 0.5,
-        ease: 'power2.out'
-      });
-    }
-  };
   
   // Expose methods to parent component via ref
   useImperativeHandle(ref, () => ({
     animateShuffle,
+    prepareFlipAnimation,
     getPositions: () => positions,
-    getGridDimensions: () => gridDimensions
+    getGridDimensions: () => gridDimensions,
+    cardRefs // Expose cardRefs to parent component
   }));
   
-  // Shuffle animation using gsap.context, returns a Promise
-  const animateShuffle = (newOrder) => {
-    return new Promise((resolve) => { // Wrap in a Promise
-      console.log('[CardGrid] animateShuffle called with newOrder:', newOrder);
-      console.log('[CardGrid] Current positions state:', positions);
-    console.log('[CardGrid] Grid dimensions:', gridDimensions);
+  // Prepare for a FLIP animation - called before React state update
+  const prepareFlipAnimation = (newOrder) => {
+    console.log('[CardGrid] Preparing for FLIP animation with newOrder:', newOrder);
+    
+    // Capture current positions before React updates the DOM
+    cardPositionsRef.current = captureCardPositions();
+    
+    // Set the flag and store the animation order
+    isFlipAnimationPending.current = true;
+    pendingAnimationOrderRef.current = newOrder;
+  };
+  
+  // Initialize or update card refs when items change
+  useEffect(() => {
+    // Create refs for all cards
+    items.forEach((_, index) => {
+      if (!cardRefs.current[index]) {
+        cardRefs.current[index] = createRef();
+      }
+    });
+    
+    // Clean up refs for removed cards
+    Object.keys(cardRefs.current).forEach(key => {
+      const index = parseInt(key);
+      if (index >= items.length) {
+        delete cardRefs.current[index];
+      }
+    });
+  }, [items]);
+
+  // Perform the FLIP animation after React has updated the DOM
+  const performFlipAnimation = (newOrder) => {
+    console.log('[CardGrid] Performing FLIP animation with newOrder:', newOrder);
     
     // Set animating state to true
-    console.log('[CardGrid] Setting isAnimating to true');
     setIsAnimating(true);
     
     // Create a context for this animation
     const context = gsap.context(() => {
       // Store references to all card elements
       const cardElements = {};
-      newOrder.forEach((itemIndex) => {
-        const cardElement = document.getElementById(`card-${itemIndex}`);
+      
+      // Get the current positions of all cards after React has updated the DOM
+      items.forEach((_, index) => {
+        const cardElement = document.getElementById(`card-${index}`);
         if (cardElement) {
-          cardElements[itemIndex] = cardElement;
-          
-          // Reset any existing transforms to ensure clean animation
-          console.log(`[CardGrid] Resetting Card ${itemIndex} for animation`);
-          
-          // Store the current position for animation
-          const currentX = gsap.getProperty(cardElement, "x") || 0;
-          const currentY = gsap.getProperty(cardElement, "y") || 0;
-          
-          // Log the current position
-          console.log(`[CardGrid] Card ${itemIndex} starting position: X=${currentX}, Y=${currentY}`);
-        } else {
-          console.warn(`[CardGrid] Could not find card element for index: ${itemIndex}`);
+          cardElements[index] = cardElement;
         }
       });
-
-      // Get the bounding rect for the grid *once*
+      
+      // Get the bounding rect for the grid
       const gridRect = gridRef.current.getBoundingClientRect();
-
-      // Calculate final positions once before animation
-      const finalPositions = calculatePositions();
       
       // Create a timeline for the entire animation
       const mainTimeline = gsap.timeline({
         onComplete: () => {
-          console.log('[CardGrid] Main animation timeline complete.');
+          console.log('[CardGrid] FLIP animation timeline complete.');
           
-          // Log the current positions of all cards before forcing final positions
-          console.log('[CardGrid] Card positions before forcing final positions:');
-          newOrder.forEach((itemIndex) => {
-            const cardElement = cardElements[itemIndex];
-            if (!cardElement) return;
-            
-            const currentX = gsap.getProperty(cardElement, "x");
-            const currentY = gsap.getProperty(cardElement, "y");
-            console.log(`[CardGrid] Card ${itemIndex} - Current position: X=${currentX}, Y=${currentY}`);
-          });
-          
-          // Ensure all cards are precisely at their final calculated positions
-          newOrder.forEach((itemIndex, newIndex) => {
-            const cardElement = cardElements[itemIndex];
-            if (!cardElement) return;
-            
-            if (finalPositions[newIndex]) {
-              const finalX = finalPositions[newIndex].x;
-              const finalY = finalPositions[newIndex].y;
-              
-              // Get current position before setting final position
-              const currentX = gsap.getProperty(cardElement, "x");
-              const currentY = gsap.getProperty(cardElement, "y");
-              
-              // Calculate the difference between current and final positions
-              const diffX = Math.abs(currentX - finalX);
-              const diffY = Math.abs(currentY - finalY);
-              
-              // Skip GSAP and use direct DOM manipulation to ensure positions are applied correctly
-              console.log(`[CardGrid] Setting Card ${itemIndex} position directly via DOM: X=${finalX}, Y=${finalY}`);
-              
-              // Get the actual DOM element (not the GSAP wrapper)
-              const actualElement = cardElement.querySelector ? cardElement : document.getElementById(`card-${itemIndex}`);
-              
-              if (actualElement) {
-                // Apply transform directly to the element's style
-                actualElement.style.transform = `translate(${finalX}px, ${finalY}px)`;
-                actualElement.style.rotate = "0deg";
-                actualElement.style.scale = "1";
-                
-                // Also update any GSAP properties to keep them in sync
-                gsap.set(actualElement, { 
-                  x: finalX, 
-                  y: finalY,
-                  rotation: 0,
-                  scale: 1,
-                  clearProps: "z,rotationX,rotationY",
-                  force3D: true
-                });
-              } else {
-                console.error(`[CardGrid] Could not find actual DOM element for Card ${itemIndex}`);
-              }
-              
-              console.log(`[CardGrid] Card ${itemIndex} - Final position forced to: X=${finalX}, Y=${finalY} (Diff: X=${diffX.toFixed(2)}, Y=${diffY.toFixed(2)})`);
-              
-              // Verify the position was actually set correctly
-              const verifyX = gsap.getProperty(cardElement, "x");
-              const verifyY = gsap.getProperty(cardElement, "y");
-              
-              if (Math.abs(verifyX - finalX) > 0.1 || Math.abs(verifyY - finalY) > 0.1) {
-                console.error(`[CardGrid] Position verification failed for Card ${itemIndex}! Expected: (${finalX}, ${finalY}), Got: (${verifyX}, ${verifyY})`);
-              }
-            } else {
-               console.warn(`[CardGrid] No final position found for newIndex: ${newIndex}`);
-            }
-          });
-          
-          // Final verification of all card positions
-          console.log('[CardGrid] Final verification of card positions:');
-          const positionMap = new Map(); // Map to track positions
-          
-          newOrder.forEach((itemIndex, newIndex) => {
-            const cardElement = cardElements[itemIndex];
-            if (!cardElement) return;
-            
-            const finalX = gsap.getProperty(cardElement, "x");
-            const finalY = gsap.getProperty(cardElement, "y");
-            const posKey = `${finalX.toFixed(1)},${finalY.toFixed(1)}`;
-            
-            console.log(`[CardGrid] Card ${itemIndex} - Final verified position: X=${finalX}, Y=${finalY}`);
-            
-            // Check if this position is already taken
-            if (positionMap.has(posKey)) {
-              const otherCard = positionMap.get(posKey);
-              console.error(`[CardGrid] OVERLAP DETECTED! Cards ${itemIndex} and ${otherCard} are at the same position: ${posKey}`);
-            }
-            
-            // Record this position as taken
-            positionMap.set(posKey, itemIndex);
-          });
-          
-          // Create a new positions array based on the actual final positions of the cards
-          const actualFinalPositions = newOrder.map((itemIndex, newIndex) => {
-            const cardElement = cardElements[itemIndex];
-            if (!cardElement) {
-              // If element not found, use calculated position
-              return finalPositions[newIndex] || { x: 0, y: 0 };
-            }
-            
-            // Get the actual final position from the DOM element
-            const actualElement = cardElement.querySelector ? cardElement : document.getElementById(`card-${itemIndex}`);
-            if (actualElement) {
-              // Try to get computed style transform
-              const style = window.getComputedStyle(actualElement);
-              const transform = style.transform || style.webkitTransform || style.mozTransform;
-              
-              if (transform && transform !== 'none') {
-                console.log(`[CardGrid] Card ${itemIndex} computed transform: ${transform}`);
-              }
-            }
-            
-            // Use the calculated position as the source of truth
-            return finalPositions[newIndex];
-          });
-          
-          console.log('[CardGrid] Actual final positions:', actualFinalPositions);
-          
-          // Update positions state with actual final positions
-          //setPositions(actualFinalPositions);
-          
-          // Turn off animation state after a small delay to ensure all DOM updates are complete
+          // Turn off animation state
           setTimeout(() => {
             console.log('[CardGrid] Setting isAnimating to false');
             setIsAnimating(false);
-            
-            // Do one final check to ensure cards are at their correct positions
-            // But only update positions that are significantly off
-            newOrder.forEach((itemIndex, newIndex) => {
-              const cardElement = document.getElementById(`card-${itemIndex}`);
-              if (cardElement && actualFinalPositions[newIndex]) {
-                const finalX = actualFinalPositions[newIndex].x;
-                const finalY = actualFinalPositions[newIndex].y;
-                
-                // Get current transform
-                const style = window.getComputedStyle(cardElement);
-                const transform = style.transform || style.webkitTransform || style.mozTransform;
-                
-                // Only update if transform is missing or significantly different
-                if (!transform || transform === 'none' || transform.includes('matrix') || transform.includes('translate(0px, 0px)')) {
-                  // Force the position one last time
-                  cardElement.style.transform = `translate(${finalX}px, ${finalY}px)`;
-                  console.log(`[CardGrid] Final position correction for Card ${itemIndex}: X=${finalX}, Y=${finalY}`);
-                }
-              }
-            });
-            
-            // Resolve the promise
-            console.log('[CardGrid] Resolving animation promise.');
-            resolve();
-          }, 20); // Keep the original timeout value
+          }, 20);
         }
       });
-
-      // --- Select and Execute Random Animation ---
+      
+      // For each card in the new order, calculate how it needs to move
+      newOrder.forEach((oldIndex, newIndex) => {
+        const cardElement = cardElements[newIndex];
+        if (!cardElement) return;
+        
+        // Get the old position from our captured positions
+        const oldPosition = cardPositionsRef.current[oldIndex];
+        if (!oldPosition) return;
+        
+        // Get the new position after React has updated the DOM
+        const newRect = cardElement.getBoundingClientRect();
+        
+        // Calculate the difference between old and new positions
+        const deltaX = oldPosition.rect.left - newRect.left;
+        const deltaY = oldPosition.rect.top - newRect.top;
+        
+        // Immediately move the card back to its old position
+        gsap.set(cardElement, {
+          x: deltaX,
+          y: deltaY
+        });
+      });
+      
+      // Select and execute random animation
       const selectedAnimation = getRandomAnimation();
-
+      
       if (selectedAnimation) {
         console.log('[CardGrid] Executing selected animation...');
         try {
@@ -399,32 +276,45 @@ const CardGrid = forwardRef(({ items, sticky = [], onReorder, onToggleSticky }, 
             newOrder,
             positions,
             gridDimensions,
-            gridRect, // Pass the calculated gridRect
+            gridRect,
             sticky,
-            timeline: mainTimeline // Pass the timeline for the animation to add to
+            timeline: mainTimeline
           });
         } catch (error) {
-           console.error("[CardGrid] Error executing animation function:", error);
-           // Potentially resolve the promise here if animation fails critically
-           // resolve(); // Or handle error differently
+          console.error("[CardGrid] Error executing animation function:", error);
         }
       } else {
-        console.warn("[CardGrid] No animation function selected or available. Skipping animation.");
-        // If no animation runs, we still need to resolve the promise
-        // We can do this immediately or after a minimal delay
-        gsap.delayedCall(0.1, () => {
-           console.log('[CardGrid] No animation ran, resolving promise.');
-           resolve();
+        console.warn("[CardGrid] No animation function selected or available. Using default animation.");
+        
+        // Default animation if no animation is selected
+        newOrder.forEach((oldIndex, newIndex) => {
+          const cardElement = cardElements[newIndex];
+          if (!cardElement) return;
+          
+          // Animate to final position (which is 0,0 since we're using transforms)
+          mainTimeline.to(cardElement, {
+            x: 0,
+            y: 0,
+            rotation: 0,
+            scale: 1,
+            duration: 0.8,
+            ease: "power2.out",
+            force3D: true
+          }, 0);
         });
       }
-      // --- End Animation Execution ---
-
-    }, gridRef); // Scope GSAP context to gridRef
-    }); // End of Promise
+    }, gridRef);
+  };
+  
+  // Legacy shuffle animation method - now just prepares for FLIP and returns a resolved promise
+  const animateShuffle = (newOrder) => {
+    console.log('[CardGrid] Legacy animateShuffle called, using FLIP technique instead');
     
-    // Note: The context cleanup is handled implicitly by useGSAP when the component unmounts
-    // or dependencies change, so explicitly returning context.revert() might not be necessary
-    // unless specific cleanup timing is required outside the component lifecycle.
+    // Prepare for FLIP animation
+    prepareFlipAnimation(newOrder);
+    
+    // Return a resolved promise since the actual animation will happen after React updates
+    return Promise.resolve();
   };
   
   return (
@@ -449,10 +339,10 @@ const CardGrid = forwardRef(({ items, sticky = [], onReorder, onToggleSticky }, 
           }}
         >
           <Card
+            ref={cardRefs.current[index]}
             item={item}
             index={index}
             isSticky={isSticky(index, sticky)}
-            onDragEnd={handleDragEnd}
             onToggleSticky={() => onToggleSticky(index)}
           />
         </div>

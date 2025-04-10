@@ -143,7 +143,7 @@ function App() {
           const gridElement = document.getElementById('card-grid');
           const gridRect = gridElement ? gridElement.getBoundingClientRect() : null;
           
-          if (positions.length > 0 && gridDimensions.width > 0) {
+          if (positions.length > 0 && gridDimensions.width > 0) {              
             // Run the animation and reset the flag when done
             const timeline = runTabSwitchAnimation(cardElements, positions, gridDimensions, gridRect, sticky);
             if (timeline) {
@@ -170,128 +170,121 @@ function App() {
     };
   }, [tabSwitchAnimation, items, sticky]);
   
-  // Randomize items (async to wait for animation)
-  const handleRandomize = async () => { // Make the function async
+  // Randomize items using FLIP technique
+  const handleRandomize = async () => {
     console.log('[App] handleRandomize triggered. Current items:', items);
     console.log('[App] Current sticky indices:', sticky);
     
     setHeaderIsAnimating(true); // Start header animation
     
-    try { // Wrap in try...finally to ensure state is reset
+    try {
       // Create a copy of the items array
-    const newItems = [...items];
-    console.log('[App] Original items array (copy):', newItems);
-    
-    // Get non-sticky items
-    const nonStickyIndices = newItems.map((_, index) => index)
-      .filter(index => !sticky.includes(index));
-    console.log('[App] Non-sticky indices:', nonStickyIndices);
-    
-    // Shuffle non-sticky items using Fisher-Yates algorithm
-    for (let i = nonStickyIndices.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const temp = nonStickyIndices[i];
-      nonStickyIndices[i] = nonStickyIndices[j];
-      nonStickyIndices[j] = temp;
-    }
-    console.log('[App] Shuffled non-sticky indices:', nonStickyIndices);
-    
-    // Create a new array with shuffled non-sticky items
-    const shuffledItems = [];
-    let nonStickyCounter = 0;
-    
-    for (let i = 0; i < newItems.length; i++) {
-      if (sticky.includes(i)) {
-        // Keep sticky items in place
-        shuffledItems[i] = newItems[i];
-        console.log(`[App] Item at index ${i} is sticky, keeping in place: "${newItems[i]}"`);
-      } else {
-        // Place non-sticky items in shuffled order
-        const newIndex = nonStickyIndices[nonStickyCounter];
-        shuffledItems[i] = newItems[newIndex];
-        console.log(`[App] Item at index ${i} is not sticky, using item from index ${newIndex}: "${newItems[newIndex]}"`);
-        nonStickyCounter++;
+      const newItems = [...items];
+      console.log('[App] Original items array (copy):', newItems);
+      
+      // Get non-sticky items
+      const nonStickyIndices = newItems.map((_, index) => index)
+        .filter(index => !sticky.includes(index));
+      console.log('[App] Non-sticky indices:', nonStickyIndices);
+      
+      // Shuffle non-sticky items using Fisher-Yates algorithm
+      for (let i = nonStickyIndices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const temp = nonStickyIndices[i];
+        nonStickyIndices[i] = nonStickyIndices[j];
+        nonStickyIndices[j] = temp;
       }
-    }
-    console.log('[App] Final shuffled items array:', shuffledItems);
-    
-    // Create the correct mapping for animateShuffle: newOrder[newIndex] = oldIndex
-    // We need to track which indices we've already used to handle duplicate items
-    const newOrderForAnimation = Array(newItems.length);
-    const usedIndices = new Set();
-    
-    console.log('[App] Building animation order mapping...');
-    shuffledItems.forEach((item, newIndex) => {
-      // Find all indices where this item appears in the original array
-      const allIndices = newItems.map((oldItem, idx) => 
-        oldItem === item ? idx : -1
-      ).filter(idx => idx !== -1);
+      console.log('[App] Shuffled non-sticky indices:', nonStickyIndices);
       
-      console.log(`[App] Item "${item}" at new index ${newIndex} appears at original indices:`, allIndices);
+      // Create a new array with shuffled non-sticky items
+      const shuffledItems = [];
+      let nonStickyCounter = 0;
       
-      // Find the first unused index for this item
-      const oldIndex = allIndices.find(idx => !usedIndices.has(idx));
-      
-      if (oldIndex !== undefined) {
-        newOrderForAnimation[newIndex] = oldIndex;
-        usedIndices.add(oldIndex);
-        console.log(`[App] Mapping new index ${newIndex} to original index ${oldIndex}`);
-      } else {
-        // Fallback (should not happen if shuffledItems contains the same items as newItems)
-        console.warn(`[App] Could not find unused index for item "${item}" at position ${newIndex}`);
-        console.warn(`[App] Used indices so far:`, Array.from(usedIndices));
-        console.warn(`[App] All indices for this item:`, allIndices);
-        newOrderForAnimation[newIndex] = newIndex; // Default to same position
+      for (let i = 0; i < newItems.length; i++) {
+        if (sticky.includes(i)) {
+          // Keep sticky items in place
+          shuffledItems[i] = newItems[i];
+          console.log(`[App] Item at index ${i} is sticky, keeping in place: "${newItems[i]}"`);
+        } else {
+          // Place non-sticky items in shuffled order
+          const newIndex = nonStickyIndices[nonStickyCounter];
+          shuffledItems[i] = newItems[newIndex];
+          console.log(`[App] Item at index ${i} is not sticky, using item from index ${newIndex}: "${newItems[newIndex]}"`);
+          nonStickyCounter++;
+        }
       }
-    });
-    
-    console.log('[App] Final newOrderForAnimation:', newOrderForAnimation);
-    console.log('[App] Used indices:', Array.from(usedIndices));
-    
-    // Verify the mapping is complete and valid
-    const missingIndices = [];
-    for (let i = 0; i < newOrderForAnimation.length; i++) {
-      if (newOrderForAnimation[i] === undefined) {
-        missingIndices.push(i);
-      }
-    }
-    
-    if (missingIndices.length > 0) {
-      console.error('[App] Missing indices in newOrderForAnimation:', missingIndices);
-    }
-    
-    // Check for duplicate mappings
-    const valueCount = {};
-    newOrderForAnimation.forEach(value => {
-      valueCount[value] = (valueCount[value] || 0) + 1;
-    });
-    
-    const duplicates = Object.entries(valueCount)
-      .filter(([_, count]) => count > 1)
-      .map(([value, _]) => parseInt(value));
-    
-    if (duplicates.length > 0) {
-      console.error('[App] Duplicate values in newOrderForAnimation:', duplicates);
-      console.error('[App] This means multiple cards will animate from the same starting position!');
+      console.log('[App] Final shuffled items array:', shuffledItems);
       
-      // Log the problematic mappings
-      newOrderForAnimation.forEach((oldIndex, newIndex) => {
-        if (duplicates.includes(oldIndex)) {
-          console.error(`[App] Duplicate mapping: newIndex ${newIndex} -> oldIndex ${oldIndex}`);
+      // Create the correct mapping for animation: newOrder[newIndex] = oldIndex
+      // We need to track which indices we've already used to handle duplicate items
+      const newOrderForAnimation = Array(newItems.length);
+      const usedIndices = new Set();
+      
+      console.log('[App] Building animation order mapping...');
+      shuffledItems.forEach((item, newIndex) => {
+        // Find all indices where this item appears in the original array
+        const allIndices = newItems.map((oldItem, idx) => 
+          oldItem === item ? idx : -1
+        ).filter(idx => idx !== -1);
+        
+        console.log(`[App] Item "${item}" at new index ${newIndex} appears at original indices:`, allIndices);
+        
+        // Find the first unused index for this item
+        const oldIndex = allIndices.find(idx => !usedIndices.has(idx));
+        
+        if (oldIndex !== undefined) {
+          newOrderForAnimation[newIndex] = oldIndex;
+          usedIndices.add(oldIndex);
+          console.log(`[App] Mapping new index ${newIndex} to original index ${oldIndex}`);
+        } else {
+          // Fallback (should not happen if shuffledItems contains the same items as newItems)
+          console.warn(`[App] Could not find unused index for item "${item}" at position ${newIndex}`);
+          console.warn(`[App] Used indices so far:`, Array.from(usedIndices));
+          console.warn(`[App] All indices for this item:`, allIndices);
+          newOrderForAnimation[newIndex] = newIndex; // Default to same position
         }
       });
-    }
-    
-    // Use the enhanced animation in CardGrid component
-    if (cardGridRef.current && cardGridRef.current.animateShuffle) {
-      console.log('[App] Calling cardGridRef.animateShuffle with:', newOrderForAnimation);
       
-      try {
-        // Await the animation promise before updating state
-        await cardGridRef.current.animateShuffle(newOrderForAnimation); // Add await
-        console.log('[App] Animation completed successfully');
+      console.log('[App] Final newOrderForAnimation:', newOrderForAnimation);
+      
+      // Verify the mapping is complete and valid
+      const missingIndices = [];
+      for (let i = 0; i < newOrderForAnimation.length; i++) {
+        if (newOrderForAnimation[i] === undefined) {
+          missingIndices.push(i);
+        }
+      }
+      
+      if (missingIndices.length > 0) {
+        console.error('[App] Missing indices in newOrderForAnimation:', missingIndices);
+      }
+      
+      // Check for duplicate mappings
+      const valueCount = {};
+      newOrderForAnimation.forEach(value => {
+        valueCount[value] = (valueCount[value] || 0) + 1;
+      });
+      
+      const duplicates = Object.entries(valueCount)
+        .filter(([_, count]) => count > 1)
+        .map(([value, _]) => parseInt(value));
+      
+      if (duplicates.length > 0) {
+        console.error('[App] Duplicate values in newOrderForAnimation:', duplicates);
+        console.error('[App] This means multiple cards will animate from the same starting position!');
+      }
+      
+      // FLIP Animation Process:
+      // 1. Prepare for animation (capture current positions)
+      // 2. Update React state (this will cause a re-render with the new order)
+      // 3. After render, the useLayoutEffect in CardGrid will run the animation
+      
+      if (cardGridRef.current && cardGridRef.current.prepareFlipAnimation) {
+        // Step 1: Prepare for animation
+        console.log('[App] Preparing for FLIP animation with:', newOrderForAnimation);
+        cardGridRef.current.prepareFlipAnimation(newOrderForAnimation);
         
-        // Update items state and URL *after* animation completes
+        // Step 2: Update state (this will trigger the animation after render)
         console.log('[App] Setting items state with shuffled items:', shuffledItems);
         setItems(shuffledItems);
         updateURL(shuffledItems, sticky, template);
@@ -308,32 +301,27 @@ function App() {
             console.error('[App] Failed to auto-copy to clipboard');
           }
         }
+      } else {
+        console.warn('[App] cardGridRef or prepareFlipAnimation not available. Updating state immediately.');
+        // Fallback: Update state immediately if animation cannot run
+        setItems(shuffledItems);
+        updateURL(shuffledItems, sticky, template);
         
-      } catch (error) {
-        console.error('[App] Error during animation or state update:', error);
-        // Optionally reset state or handle error appropriately
+        // Auto-copy to clipboard if enabled
+        if (autoCopy) {
+          console.log('[App] Auto-copying to clipboard');
+          await copyItemsToClipboard(shuffledItems, template, () => {
+            setShowCopyNotification(true);
+            setTimeout(() => setShowCopyNotification(false), 2000);
+          });
+        }
+        
+        if (!cardGridRef.current) {
+          console.error('[App] cardGridRef.current is null');
+        } else if (!cardGridRef.current.prepareFlipAnimation) {
+          console.error('[App] cardGridRef.current.prepareFlipAnimation is not a function');
+        }
       }
-    } else {
-      console.warn('[App] cardGridRef or animateShuffle not available. Updating state immediately.');
-      // Fallback: Update state immediately if animation cannot run
-      setItems(shuffledItems);
-      updateURL(shuffledItems, sticky, template);
-      
-      // Auto-copy to clipboard if enabled
-      if (autoCopy) {
-        console.log('[App] Auto-copying to clipboard');
-        await copyItemsToClipboard(shuffledItems, template, () => {
-          setShowCopyNotification(true);
-          setTimeout(() => setShowCopyNotification(false), 2000);
-        });
-      }
-      
-      if (!cardGridRef.current) {
-        console.error('[App] cardGridRef.current is null');
-      } else if (!cardGridRef.current.animateShuffle) {
-        console.error('[App] cardGridRef.current.animateShuffle is not a function');
-      }
-    }
     } finally {
       setHeaderIsAnimating(false); // Stop header animation regardless of success/failure
     }
