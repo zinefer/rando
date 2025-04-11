@@ -2,12 +2,13 @@ import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useLayout
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 
-// Register the useGSAP plugin
-gsap.registerPlugin(useGSAP);
+import { getRandomAnimation } from '../animations';
 
+import AddItemDialog from './AddItemDialog';
 import Card from './Card';
+
 import { isSticky } from '../utils/URLManager';
-import { getRandomAnimation } from '../animations'; // Import the random animation getter
+
 import { EFFECTIVE_CARD_WIDTH, EFFECTIVE_CARD_HEIGHT } from '../constants';
 
 /**
@@ -18,13 +19,27 @@ import { EFFECTIVE_CARD_WIDTH, EFFECTIVE_CARD_HEIGHT } from '../constants';
  * @param {Array} props.sticky - Array of sticky item indices
  * @param {Function} props.onReorder - Callback for when items are reordered
  * @param {Function} props.onToggleSticky - Callback for toggling sticky status
+ * @param {Function} props.onAnimationComplete - Callback for when the FLIP animation completes
+ * @param {Function} props.onRemoveItem - Callback for removing an item
+ * @param {Function} props.onAddItem - Callback for adding a new item
+ * @param {Function} props.onReorderItem - Callback for reordering an item
  * @param {Object} ref - Forwarded ref for parent component to access methods
  */
-const CardGrid = forwardRef(({ items, sticky = [], onReorder, onToggleSticky }, ref) => {
+const CardGrid = forwardRef(({ 
+  items, 
+  sticky = [], 
+  onReorder, 
+  onToggleSticky, 
+  onAnimationComplete,
+  onRemoveItem,
+  onAddItem,
+  onReorderItem
+}, ref) => {
   const gridRef = useRef(null);
   const [positions, setPositions] = useState([]);
   const [gridDimensions, setGridDimensions] = useState({ width: 0, height: 0 });
   const [isAnimating, setIsAnimating] = useState(false); // State to track animation status
+  const [showAddDialog, setShowAddDialog] = useState(false); // State to control add item dialog
   const isMounted = useRef(false); // Track initial mount
   const prevItemsRef = useRef([]); // Store previous items for FLIP animations
   const cardPositionsRef = useRef({}); // Store card positions for FLIP animations
@@ -218,11 +233,21 @@ const CardGrid = forwardRef(({ items, sticky = [], onReorder, onToggleSticky }, 
       // Store references to all card elements
       const cardElements = {};
       
+      // Create a reverse mapping: oldIndex -> newIndex
+      const reverseMapping = {};
+      newOrder.forEach((oldIndex, newIndex) => {
+        reverseMapping[oldIndex] = newIndex;
+      });
+      
       // Get the current positions of all cards after React has updated the DOM
-      items.forEach((_, index) => {
-        const cardElement = document.getElementById(`card-${index}`);
+      // But index them by their original indices for the animation
+      items.forEach((_, newIndex) => {
+        const cardElement = document.getElementById(`card-${newIndex}`);
         if (cardElement) {
-          cardElements[index] = cardElement;
+          // Find the oldIndex that corresponds to this newIndex
+          const oldIndex = newOrder[newIndex];
+          // Store the element with its oldIndex as the key
+          cardElements[oldIndex] = cardElement;
         }
       });
       
@@ -234,17 +259,20 @@ const CardGrid = forwardRef(({ items, sticky = [], onReorder, onToggleSticky }, 
         onComplete: () => {
           console.log('[CardGrid] FLIP animation timeline complete.');
           
-          // Turn off animation state
-          setTimeout(() => {
-            console.log('[CardGrid] Setting isAnimating to false');
-            setIsAnimating(false);
-          }, 20);
+          // Turn off internal animation state
+          setIsAnimating(false);
+          
+          // Notify parent component that animation is complete
+          if (onAnimationComplete) {
+            console.log('[CardGrid] Calling onAnimationComplete callback');
+            onAnimationComplete();
+          }
         }
       });
       
       // For each card in the new order, calculate how it needs to move
       newOrder.forEach((oldIndex, newIndex) => {
-        const cardElement = cardElements[newIndex];
+        const cardElement = cardElements[oldIndex];
         if (!cardElement) return;
         
         // Get the old position from our captured positions
@@ -288,7 +316,7 @@ const CardGrid = forwardRef(({ items, sticky = [], onReorder, onToggleSticky }, 
         
         // Default animation if no animation is selected
         newOrder.forEach((oldIndex, newIndex) => {
-          const cardElement = cardElements[newIndex];
+          const cardElement = cardElements[oldIndex];
           if (!cardElement) return;
           
           // Animate to final position (which is 0,0 since we're using transforms)
@@ -317,17 +345,52 @@ const CardGrid = forwardRef(({ items, sticky = [], onReorder, onToggleSticky }, 
     return Promise.resolve();
   };
   
+  // Handle double-click on empty space to add a new item
+  const handleDoubleClick = (e) => {
+    // Only trigger if clicking directly on the grid, not on a card
+    if (e.target === gridRef.current || e.target.id === 'card-grid') {
+      setShowAddDialog(true);
+    }
+  };
+
   return (
     <div 
       id="card-grid"
       ref={gridRef}
-      className="card-grid relative w-full min-h-[400px] p-6 bg-gray-800 rounded-lg shadow-xl border border-gray-700"
+      className="card-grid relative w-full min-h-[400px] p-8 bg-gradient-to-b from-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700 overflow-hidden"
+      aria-label="Card grid containing randomizable items"
+      role="region"
+      onDoubleClick={handleDoubleClick}
     >
+      {/* Grid background pattern */}
+      <div className="absolute inset-0 pointer-events-none opacity-5">
+        <div className="absolute inset-0" style={{ 
+          backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px)',
+          backgroundSize: `${EFFECTIVE_CARD_WIDTH}px ${EFFECTIVE_CARD_HEIGHT}px`
+        }}></div>
+      </div>
+      
+      {/* Animation status indicator removed */}
+      
+      {/* Empty state */}
+      {items.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto mb-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            <p className="text-lg font-medium">No items to display</p>
+            <p className="text-sm mt-2">Add some items in settings to get started</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Cards */}
       {items.map((item, index) => (
         <div
           key={`${item}-${index}`}
           id={`card-${index}`}
-          className="absolute"
+          className="absolute transition-opacity"
           // Always maintain the transform style, but let GSAP override it during animation
           // This prevents the cards from jumping to origin (0,0) when animation starts
           style={{
@@ -335,7 +398,9 @@ const CardGrid = forwardRef(({ items, sticky = [], onReorder, onToggleSticky }, 
             // Add a pointer-events property to prevent interaction during animation
             pointerEvents: isAnimating ? 'none' : 'auto',
             // Ensure each card has a unique z-index to prevent overlapping
-            zIndex: isAnimating ? 10 : index + 1
+            zIndex: isAnimating ? (isSticky(index, sticky) ? 20 : 10) : index + 1,
+            // Add a subtle opacity transition during animation
+            opacity: isAnimating ? 0.95 : 1
           }}
         >
           <Card
@@ -344,9 +409,37 @@ const CardGrid = forwardRef(({ items, sticky = [], onReorder, onToggleSticky }, 
             index={index}
             isSticky={isSticky(index, sticky)}
             onToggleSticky={() => onToggleSticky(index)}
+            onRemoveItem={onRemoveItem}
+            onReorderItem={onReorderItem}
+            totalItems={items.length}
           />
         </div>
       ))}
+      
+      {/* Add Item Dialog */}
+      {showAddDialog && (
+        <AddItemDialog 
+          onAdd={(itemName) => {
+            onAddItem(itemName);
+            setShowAddDialog(false);
+          }}
+          onCancel={() => setShowAddDialog(false)}
+        />
+      )}
+      
+      {/* Card count indicator */}
+      <div className="absolute bottom-3 right-3 bg-gray-800 bg-opacity-60 backdrop-blur-sm text-xs text-gray-300 px-2 py-1 rounded-full flex items-center space-x-1.5 border border-gray-700">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+        </svg>
+        <span>{items.length} items</span>
+        {sticky.length > 0 && (
+          <span className="flex items-center ml-1">
+            <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-1"></span>
+            {sticky.length} sticky
+          </span>
+        )}
+      </div>
     </div>
   );
 });

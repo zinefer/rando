@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { isSticky } from '../utils/URLManager';
+
 import { shouldAnimateCard } from '../utils/AnimationHelper';
 import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 

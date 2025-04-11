@@ -22,7 +22,7 @@ export const tumbleweed = ({ elements, newOrder, positions, gridDimensions, grid
   const offScreenLeft = gridRect.left - cardWidth * 2; // Start further left for a better roll-in
 
   const durationRollOff = 1.0;
-  const durationRollIn = 1.5;
+  const durationRollIn = 1.25;
   const staggerAmount = 0.03;
   const totalCards = newOrder.length;
 

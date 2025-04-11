@@ -1,4 +1,5 @@
 import gsap from 'gsap';
+
 import { shouldAnimateCard } from '../utils/AnimationHelper';
 import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 
@@ -123,8 +124,13 @@ export function swirlVortex({ elements, newOrder, positions, gridDimensions, gri
     spiralPoints.forEach((point, i) => {
       // Calculate rotation based on position in spiral
       // More rotation at the beginning, less at the end
-      const rotationAmount = 360 * (1 - i / spiralPoints.length) * (Math.random() > 0.5 ? 1 : -1);
-      
+      let rotationAmount = 360 * (1 - i / spiralPoints.length) * (Math.random() > 0.5 ? 1 : -1);
+
+      // Clamp the final rotation between -3 and +3 degrees
+      if (i === spiralPoints.length - 1) {
+        rotationAmount = clamp(rotationAmount, -3, 3);
+      }
+
       // Scale varies along the path - larger in the middle, normal at the end
       const scaleAmount = i === spiralPoints.length - 1 
         ? 1 // Final position has normal scale

@@ -1,4 +1,5 @@
 import gsap from 'gsap';
+
 import { shouldAnimateCard } from '../utils/AnimationHelper';
 import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 
@@ -17,6 +18,12 @@ import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
  */
 export function swingChain({ elements, newOrder, positions, gridDimensions, gridRect, sticky, timeline }) {
   console.log('[swingChain] Animating cards...');
+  console.log('[swingChain] New order:', newOrder);
+  // Print elements in new order for debugging
+  newOrder.forEach((oldIndex, newIndex) => {
+    console.log(`[swingChain] Element ${oldIndex} at new index ${newIndex}:`, elements[oldIndex]?.textContent || '[No text content]');
+  });
+  
 
   // Card dimensions from constants
   const cardWidth = BASE_CARD_WIDTH; 

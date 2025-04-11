@@ -1,4 +1,5 @@
 import gsap from 'gsap';
+
 import { shouldAnimateCard } from '../utils/AnimationHelper';
 import { BASE_CARD_WIDTH, BASE_CARD_HEIGHT } from '../constants';
 
@@ -169,4 +170,7 @@ export function elasticBounce({ elements, newOrder, positions, gridDimensions, g
     // Add this card's timeline to the main timeline
     timeline.add(cardTimeline, 0);
   });
+
+  // Return the main timeline so the caller can attach callbacks
+  return timeline;
 }

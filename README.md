@@ -6,14 +6,13 @@ Rando is a fun and interactive web application that randomizes lists with engagi
 
 ### Core Functionality
 - **List Randomization**: Shuffle your list items with a click of a button
-- **URL-Based Lists**: Items are stored in the URL for easy sharing and bookmarking
+- **URL Hash-Based Lists**: Items and sticky status are stored in the URL hash (`#`) for easy sharing and bookmarking using a custom format.
 - **Clipboard Integration**: Press Ctrl+C to copy the randomized list to clipboard
 - **Auto-Copy**: Optionally enable automatic copying to clipboard after randomization
 
 ### User Interface
 - **Card Grid Layout**: Items displayed as a grid of attractive cards
 - **Responsive Design**: Works on desktop and mobile devices
-- **Drag and Drop**: Reorder cards manually by dragging them
 - **Visual Feedback**: Notifications when items are copied to clipboard
 
 ### Customization
@@ -44,13 +43,15 @@ Rando includes 11 different animations for shuffling:
 3. Click the "Randomize" button to shuffle the items
 4. Press Ctrl+C to copy the randomized list to clipboard
 
-### URL Parameters
-The application uses URL parameters to store:
-- List items
-- Sticky items
-- Template format
+### URL Hash Format
+The application uses the URL hash fragment (`#`) to store the list state, allowing you to share your configuration by simply sharing the URL. The format is custom-designed for readability:
 
-This allows you to share your list configuration by simply sharing the URL.
+`#Item1,Item2->ExportVal2,📌Item3`
+
+- **`,` (Comma):** Separates individual list items.
+- **`->` (Arrow):** Separates the display `name` from the `export` value for items that have distinct values (e.g., `Item2->ExportVal2`). Simple string items won't have `->`.
+- **`📌` (Pin):** Prefixes an item to mark it as "sticky" (e.g., `📌Item3`).
+- **Encoding:** To ensure correctness, special characters (`,`, `->`, `📌`, and others) within item names or export values are automatically URL-encoded (e.g., `%2C` for a comma). This might make some parts less readable but guarantees the format works reliably.
 
 ### Settings Panel
 Access the settings panel by clicking the gear icon to:

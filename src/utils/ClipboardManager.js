@@ -34,6 +34,8 @@ export const copyToClipboard = async (text) => {
 export const copyItemsToClipboard = async (items, template, onCopy) => {
   // Format items with template
   const formattedText = formatWithTemplate(items, template);
+
+  console.log('[ClipboardManager] Copying items to clipboard:', formattedText);
   
   // Copy to clipboard
   const success = await copyToClipboard(formattedText);
