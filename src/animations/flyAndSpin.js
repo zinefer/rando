@@ -122,16 +122,6 @@ export function flyAndSpin({ elements, newOrder, positions, gridDimensions, grid
       force3D: true
     });
 
-    // Intermediate position (clamped)
-    cardTimeline.to(cardElement, {
-      x: clampedIntermediateGridX, // Relative to grid
-      y: clampedIntermediateGridY, // Relative to grid
-      rotation: directionX * 45,
-      duration: 0.4,
-      ease: 'power1.inOut',
-      force3D: true
-    });
-
     // Final position
     cardTimeline.to(cardElement, {
       x: finalX, // Relative to grid

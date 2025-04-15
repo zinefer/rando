@@ -8,20 +8,29 @@ import { chainJuggle } from './chainJuggle';
 import { swingChain } from './swingChain';
 import { tornado } from './tornado';
 import { fireworks } from './fireworks';
-import { melt } from './melt';
 import { rollerCoaster } from './rollerCoaster';
 import { splash } from './splash';
 import { tumbleweed } from './tumbleweed';
-import { loadEnabledAnimations, saveEnabledAnimations } from '../utils/LocalStorageManager';
-import { runAnimationWithOverflowControl } from '../utils/AnimationHelper';
 import { slotMachine } from './slotMachine';
+import { fallAndReveal } from './fallAndReveal';
+import { kaleidoscope } from './kaleidoscope';
+import { craneMachine } from './craneMachine';
+
+import { runAnimationWithOverflowControl } from '../utils/AnimationHelper';
+import { loadEnabledAnimations, saveEnabledAnimations } from '../utils/LocalStorageManager';
 
 // Animation definitions with metadata
 export const animationDefinitions = {
-  flyAndSpin: {
-    name: 'Fly and Spin',
-    function: flyAndSpin,
-    description: 'Cards fly around and spin before settling',
+  chainJuggle: {
+    name: 'Chain Juggle',
+    function: chainJuggle,
+    description: 'Cards juggle in a chain-like pattern',
+    overflow: true
+  },
+  craneMachine: {
+    name: 'Crane Machine',
+    function: craneMachine,
+    description: 'Cards are picked up by cranes and moved to their positions',
     overflow: true
   },
   elasticBounce: {
@@ -30,34 +39,10 @@ export const animationDefinitions = {
     description: 'Cards bounce with elastic motion',
     overflow: false
   },
-  swirlVortex: {
-    name: 'Swirl Vortex',
-    function: swirlVortex,
-    description: 'Cards swirl in a vortex pattern',
-    overflow: true
-  },
-  matrixRain: {
-    name: 'Matrix Rain',
-    function: matrixRain,
-    description: 'Cards fall like in the Matrix movie',
-    overflow: false
-  },
-  chainJuggle: {
-    name: 'Chain Juggle',
-    function: chainJuggle,
-    description: 'Cards juggle in a chain-like pattern',
-    overflow: true
-  },
-  swingChain: {
-    name: 'Swing Chain',
-    function: swingChain,
-    description: 'Cards swing in a chain-like motion',
-    overflow: true
-  },
-  tornado: {
-    name: 'Tornado',
-    function: tornado,
-    description: 'Cards swirl in a tornado pattern',
+  fallAndReveal: {
+    name: 'Fall and Reveal',
+    function: fallAndReveal,
+    description: 'Cards shrink as if falling away, then grow back to reveal new order',
     overflow: true
   },
   fireworks: {
@@ -66,28 +51,28 @@ export const animationDefinitions = {
     description: 'Cards explode like fireworks',
     overflow: true
   },
-  melt: {
-    name: 'Melt',
-    function: melt,
-    description: 'Cards melt away and reform',
-    overflow: false
+  flyAndSpin: {
+    name: 'Fly and Spin',
+    function: flyAndSpin,
+    description: 'Cards fly around and spin before settling',
+    overflow: true
+  },
+  kaleidoscope: {
+    name: 'Kaleidoscope',
+    function: kaleidoscope,
+    description: 'Cards form a symmetrical pattern, rotate, and explode outward',
+    overflow: true
+  },
+  matrixRain: {
+    name: 'Matrix Rain',
+    function: matrixRain,
+    description: 'Cards fall with digital rain effects in Matrix style',
+    overflow: true // Changed to true to allow digital rain characters and particles to be visible outside grid
   },
   rollerCoaster: {
     name: 'Roller Coaster',
     function: rollerCoaster,
     description: 'Cards follow a roller coaster path',
-    overflow: true
-  },
-  splash: {
-    name: 'Splash',
-    function: splash,
-    description: 'Cards splash outward and back',
-    overflow: true
-  },
-  tumbleweed: {
-    name: 'Tumbleweed',
-    function: tumbleweed,
-    description: 'Cards roll like tumbleweeds off-screen and back on',
     overflow: true
   },
   slotMachine: {
@@ -96,7 +81,36 @@ export const animationDefinitions = {
     description: 'Cards spin like a slot machine reel',
     overflow: false
   },
-  // Add other animations here as they are created
+  splash: {
+    name: 'Splash',
+    function: splash,
+    description: 'Cards splash outward and back',
+    overflow: true
+  },
+  swingChain: {
+    name: 'Swing Chain',
+    function: swingChain,
+    description: 'Cards swing in a chain-like motion',
+    overflow: true
+  },
+  swirlVortex: {
+    name: 'Swirl Vortex',
+    function: swirlVortex,
+    description: 'Cards swirl in a vortex pattern',
+    overflow: true
+  },
+  tumbleweed: {
+    name: 'Tumbleweed',
+    function: tumbleweed,
+    description: 'Cards roll like tumbleweeds off-screen and back on',
+    overflow: true
+  },
+  tornado: {
+    name: 'Tornado',
+    function: tornado,
+    description: 'Cards swirl in a tornado pattern',
+    overflow: true
+  }
 };
 
 // Export animations object for backward compatibility
@@ -147,7 +161,7 @@ export const getRandomAnimation = () => {
     return runAnimationWithOverflowControl(
       animationDef.function,
       animationDef.overflow,
-      options
+      { ...options, animationName: animationDef.name }
     );
   };
 };
@@ -166,7 +180,7 @@ export const getAnimationByKey = (key) => {
     return runAnimationWithOverflowControl(
       animationDef.function,
       animationDef.overflow,
-      options
+      { ...options, animationName: animationDef.name }
     );
   };
 };

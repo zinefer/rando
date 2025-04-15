@@ -111,7 +111,6 @@ const Header = ({ onRandomize, onToggleSettings, isAnimating }) => {
           <h1 className="text-4xl font-bold text-white">
             Rando
           </h1>
-          <div className="absolute -top-1 -right-1 w-2 h-2 bg-pink-500 rounded-full animate-ping"></div>
         </div>
         <div className="ml-3 flex flex-col">
           <span className="text-sm text-indigo-300 font-medium">List Randomizer</span>

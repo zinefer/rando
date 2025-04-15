@@ -50,12 +50,114 @@ export function slotMachine({ elements, newOrder, positions, gridDimensions, gri
   // Maximum delay between columns
   const maxColumnDelay = 0.3;
   
+  // Store all dummy cards for later cleanup
+  const dummyCards = [];
+  
   // Process each column
   sortedColumns.forEach((columnKey, columnIndex) => {
     const columnDelay = columnIndex * (maxColumnDelay / sortedColumns.length);
     const cardsInColumn = columnMap[columnKey];
     
-    // Process each card in this column
+    // Add dummy cards to each column
+    // First, find template cards for this column that we can clone
+    const availableCards = [];
+    for (const { itemIndex } of cardsInColumn) {
+      if (elements[itemIndex] && shouldAnimateCard(itemIndex, sticky)) {
+        availableCards.push(elements[itemIndex]);
+      }
+    }
+    
+    // If we have at least one template card, proceed
+    if (availableCards.length > 0) {
+      // Get column x position
+      const columnX = Number(columnKey);
+      
+      // Find all real cards in the grid to use as varied templates
+      const allAnimatableCards = [];
+      for (const [index, element] of Object.entries(elements)) {
+        if (element && shouldAnimateCard(parseInt(index), sticky)) {
+          allAnimatableCards.push(element);
+        }
+      }
+      
+      // Create 5 dummy cards for this column using different card designs
+      for (let i = 0; i < 5; i++) {
+        // Choose a different template for each dummy card to ensure variety
+        // Either from all cards or from the available templates if we have enough
+        let templateIndex;
+        if (allAnimatableCards.length >= 5) {
+          // Use a different real card for each dummy (avoiding repeats)
+          templateIndex = (i + columnIndex) % allAnimatableCards.length;
+        } else {
+          // If not enough variety, at least alternate between available cards
+          templateIndex = i % allAnimatableCards.length;
+        }
+        
+        const templateCard = allAnimatableCards[templateIndex];
+        const dummyCard = templateCard.cloneNode(true);
+        
+        // Ensure dummy card has an appropriate style
+        dummyCard.style.position = 'absolute';
+        dummyCard.style.zIndex = '1000';
+        dummyCard.style.opacity = '1'; // Ensure dummy cards are fully visible
+        dummyCard.removeAttribute('id'); // Remove any IDs to avoid conflicts
+        dummyCard.classList.add('dummy-slot-card'); // Add class for identifying dummy cards
+        dummyCard.dataset.column = columnKey; // Track which column this belongs to
+        
+        // Add visual indicator to make it obvious this is a different card
+        // Apply a slight hue rotation to make it visually distinct but similar
+        const hueRotation = (i * 20) + (columnIndex * 30); // Different hue for each dummy
+        dummyCard.style.filter = `hue-rotate(${hueRotation}deg)`;
+        
+        // Add to DOM - use the parent of the first template card to maintain proper context
+        availableCards[0].parentNode.appendChild(dummyCard);
+        
+        // Keep track of dummy cards
+        dummyCards.push(dummyCard);
+        
+        // Position at the right x, but off-screen initially
+        gsap.set(dummyCard, {
+          x: columnX,
+          y: topBound - (i * templateCard.offsetHeight * 1.1), // Stagger positions
+          rotation: 0,
+          scale: 1,
+          force3D: true
+        });
+        
+        // Animate this dummy card just like the real cards
+        const dummyTimeline = gsap.timeline({
+          delay: columnDelay
+        });
+        
+        // Number of spins before settling
+        const numSpins = 2 + Math.floor(Math.random() * 3);
+        
+        // Create rapid spinning effect with multiple passes
+        for (let j = 0; j < numSpins; j++) {
+          // Alternate top and bottom positions
+          const fromY = j % 2 === 0 ? topBound : bottomBound;
+          const toY = j % 2 === 0 ? bottomBound : topBound;
+          
+          // Speed increases as we approach the end of spins
+          const spinSegmentDuration = spinDuration / numSpins * (1 - (j / (numSpins * 2)));
+          
+          dummyTimeline.fromTo(dummyCard, 
+            { y: fromY },
+            { 
+              y: toY, 
+              duration: spinSegmentDuration, 
+              ease: spinEase,
+              force3D: true
+            }
+          );
+        }
+        
+        // Add this dummy card's timeline to the main timeline
+        timeline.add(dummyTimeline, 0);
+      }
+    }
+    
+    // Process each real card in this column
     cardsInColumn.forEach(({ itemIndex, newIndex }) => {
       const cardElement = elements[itemIndex];
       
@@ -152,4 +254,13 @@ export function slotMachine({ elements, newOrder, positions, gridDimensions, gri
     ease: "elastic.out(1, 0.3)",
     force3D: true
   }, totalDuration - 0.2);
+  
+  // Clean up dummy cards at the end of the animation
+  timeline.call(() => {
+    dummyCards.forEach(card => {
+      if (card.parentNode) {
+        card.parentNode.removeChild(card);
+      }
+    });
+  }, null, totalDuration);
 }

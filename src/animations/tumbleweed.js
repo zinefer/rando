@@ -82,7 +82,7 @@ export const tumbleweed = ({ elements, newOrder, positions, gridDimensions, grid
 
   rollInTl.staggerFromTo(
      newOrder.map(itemIndex => elements[itemIndex]).filter(el => el), // Target elements in newOrder
-     durationRollIn, // This parameter seems misplaced in staggerFromTo, removing
+     durationRollIn,
      { /* fromVars - not needed here */ },
      { /* toVars - already handled in the .to() */
        stagger: {

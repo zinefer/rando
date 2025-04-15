@@ -87,35 +87,6 @@ export const formatWithTemplate = (items, template = '{item}') => {
 };
 
 /**
- * Set up keyboard shortcut for copying items
- * @param {Array} items - List of items
- * @param {String} template - Template for formatting items
- * @param {Function} onCopy - Callback for when items are copied
- * @returns {Function} Cleanup function to remove event listener
- */
-export const setupClipboardShortcut = (items, template, onCopy) => {
-  const handleKeyDown = async (e) => {
-    // Check for Ctrl+C (or Cmd+C on Mac)
-    if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-      // Only handle if no text is selected
-      const selection = window.getSelection().toString();
-      if (!selection) {
-        e.preventDefault();
-        await copyItemsToClipboard(items, template, onCopy);
-      }
-    }
-  };
-  
-  // Add event listener
-  document.addEventListener('keydown', handleKeyDown);
-  
-  // Return cleanup function
-  return () => {
-    document.removeEventListener('keydown', handleKeyDown);
-  };
-};
-
-/**
  * Show a temporary notification
  * @param {String} message - Message to display
  * @param {Number} duration - Duration in milliseconds

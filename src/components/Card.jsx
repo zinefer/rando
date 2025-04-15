@@ -1,4 +1,4 @@
-import { useRef, forwardRef, useState, useEffect } from 'react';
+import { useRef, forwardRef, useState, useEffect, useCallback } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 
@@ -28,7 +28,6 @@ const Card = forwardRef(({ item, index, isSticky, onToggleSticky, onRemoveItem, 
   
   // Get the display name for the item
   const displayName = getDisplayName(item);
-  console.log('[Card] Item:', item, 'Display Name:', displayName);
   
   // Check if the display name should be stretched (emoji or two characters)
   const shouldStretchDisplay = shouldStretch(displayName);
@@ -66,47 +65,50 @@ const Card = forwardRef(({ item, index, isSticky, onToggleSticky, onRemoveItem, 
   const backgroundGradient = generateGradient(borderColor);
   
   // Handle keyboard events for card interactions
-  const handleKeyDown = (e) => {
-    if (isHovered) {
-      if (e.key === 'Delete') {
-        e.preventDefault();
-        if (onRemoveItem) {
-          onRemoveItem(index);
-        }
-      } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
-        e.preventDefault();
-        
-        let newIndex = index;
-        
-        // Calculate new position based on key pressed
-        switch (e.key) {
-          case 'ArrowUp':
-            newIndex = Math.max(0, index - 1);
-            break;
-          case 'ArrowDown':
-            newIndex = Math.min(totalItems - 1, index + 1);
-            break;
-          case 'ArrowLeft':
-            newIndex = Math.max(0, index - 1);
-            break;
-          case 'ArrowRight':
-            newIndex = Math.min(totalItems - 1, index + 1);
-            break;
-          case 'Home':
-            newIndex = 0;
-            break;
-          case 'End':
-            newIndex = totalItems - 1;
-            break;
-        }
-        
-        if (newIndex !== index && onReorderItem) {
-          onReorderItem(index, newIndex);
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (isHovered) {
+        if (e.key === 'Delete') {
+          e.preventDefault();
+          if (onRemoveItem) {
+            onRemoveItem(index);
+          }
+        } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+          e.preventDefault();
+
+          let newIndex = index;
+
+          // Calculate new position based on key pressed
+          switch (e.key) {
+            case 'ArrowUp':
+              newIndex = Math.max(0, index - 1);
+              break;
+            case 'ArrowDown':
+              newIndex = Math.min(totalItems - 1, index + 1);
+              break;
+            case 'ArrowLeft':
+              newIndex = Math.max(0, index - 1);
+              break;
+            case 'ArrowRight':
+              newIndex = Math.min(totalItems - 1, index + 1);
+              break;
+            case 'Home':
+              newIndex = 0;
+              break;
+            case 'End':
+              newIndex = totalItems - 1;
+              break;
+          }
+
+          if (newIndex !== index && onReorderItem) {
+            onReorderItem(index, newIndex);
+          }
         }
       }
-    }
-  };
-  
+    },
+    [isHovered, index, totalItems, onRemoveItem, onReorderItem]
+  );
+
   // Add/remove keyboard event listeners when hover state changes
   useEffect(() => {
     if (isHovered) {
@@ -115,7 +117,7 @@ const Card = forwardRef(({ item, index, isSticky, onToggleSticky, onRemoveItem, 
         window.removeEventListener('keydown', handleKeyDown);
       };
     }
-  }, [isHovered, index, totalItems]);
+  }, [isHovered, handleKeyDown]);
   
   // Handle mouse events for card interactions
   const handleMouseEnter = () => setIsHovered(true);

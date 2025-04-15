@@ -9,6 +9,10 @@
   color-scheme: dark;
 }
 
+html {
+  scrollbar-width: none;
+}
+
 body {
   min-height: 100vh;
   background-color: #111827; /* gray-900 */

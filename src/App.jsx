@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
+import { runTabSwitchAnimation } from './animations';
 
 gsap.registerPlugin(useGSAP);
-
-import { runTabSwitchAnimation } from './animations';
 
 import Header from './components/Header';
 import CardGrid from './components/CardGrid';
@@ -22,9 +21,10 @@ import {
   saveAnimateStickyCards
 } from './utils/LocalStorageManager';
 import { parseURLParams, updateURL, toggleSticky, setupHashChangeListener } from './utils/URLManager';
-import { setupClipboardShortcut, showNotification, copyItemsToClipboard } from './utils/ClipboardManager';
+import { showNotification, copyItemsToClipboard } from './utils/ClipboardManager'; // Removed setupClipboardShortcut
 
 function App() {
+
   // State for items, sticky indices, and template
   const [items, setItems] = useState([]);
   const [sticky, setSticky] = useState([]);
@@ -46,6 +46,22 @@ function App() {
   
   // Reference to CardGrid component
   const cardGridRef = useRef(null);
+
+  // Refs for clipboard shortcut
+  const itemsRef = useRef(items);
+  const templateRef = useRef(template);
+  const onCopyRef = useRef(null);
+
+  // Update refs when state changes
+  useEffect(() => { itemsRef.current = items; }, [items]);
+  useEffect(() => { templateRef.current = template; }, [template]);
+
+  // Stable callback for showing notification
+  const showCopyNotificationCallback = useCallback(() => {
+    setShowCopyNotification(true);
+    setTimeout(() => setShowCopyNotification(false), 2000);
+  }, []); // Empty dependency array ensures stable function identity
+  useEffect(() => { onCopyRef.current = showCopyNotificationCallback; }, [showCopyNotificationCallback]);
   
   // Load items from URL and settings from local storage on mount
   useEffect(() => {
@@ -106,19 +122,34 @@ function App() {
   useEffect(() => {
     console.log('[App] Items state updated:', items);
   }, [items]);
-
-  // Set up clipboard shortcut
-  useEffect(() => {
-    console.log('[App] Setting up clipboard shortcut');
-    const cleanup = setupClipboardShortcut(items, template, () => {
-      setShowCopyNotification(true);
-      setTimeout(() => setShowCopyNotification(false), 2000);
-    });
-    
-    return cleanup;
-  }, [items, template]);
   
-  // Show notification when items are copied
+  // Set up clipboard shortcut listener ONCE on mount
+  useEffect(() => {
+    console.log('[App] Setting up clipboard shortcut listener');
+    const handleKeyDown = async (e) => {
+      // Check for Ctrl+C (or Cmd+C on Mac)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        // Only handle if no text is selected
+        const selection = window.getSelection().toString();
+        if (!selection) {
+          e.preventDefault();
+          // Use refs to get current data and call the stable callback ref
+          await copyItemsToClipboard(itemsRef.current, templateRef.current, onCopyRef.current);
+        }
+      }
+    };
+    
+    // Add event listener
+    document.addEventListener('keydown', handleKeyDown);
+    
+    // Return cleanup function to remove the single listener on unmount
+    return () => {
+      console.log('[App] Removing clipboard shortcut listener');
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []); // Empty dependency array means run only on mount/unmount
+  
+  // Show notification when items are copied (original commented out code)
   // useEffect(() => {
   //   if (showCopyNotification) {
   //     //showNotification('List copied to clipboard!');

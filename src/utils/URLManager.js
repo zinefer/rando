@@ -98,7 +98,7 @@ export const parseURLParams = () => {
       console.log('[URLManager] Split parts:', parts);
       
       // Make sure we have at least two parts
-      if (parts.length >= 2) {
+      if (parts[1]) {
         const name = decodeHashString(parts[0]);
         // Join the rest of the parts with the separator in case there are multiple separators
         const exportVal = decodeHashString(parts.slice(1).join(URL_CONSTANTS.NAME_EXPORT_SEPARATOR));
@@ -108,7 +108,7 @@ export const parseURLParams = () => {
       } else {
         // If we only have one part, treat it as a simple string
         const decodedItem = decodeHashString(processedStr);
-        console.log('[URLManager] Parsed as simple item despite separator:', decodedItem);
+        console.warn('[URLManager] Parsed as simple item despite separator:', decodedItem);
         items.push(decodedItem);
       }
     } else {

@@ -31,7 +31,6 @@ import { UI_CONSTANTS, TEMPLATE_SEPARATOR } from '../../constants/appConstants';
  * @param {Function} props.handleSortItems - Callback for sorting items
  * @param {Function} props.handleAddItem - Callback for adding a new item
  * @param {Function} props.handleClearItems - Callback for clearing all items
- * @param {Function} props.onUpdateSticky - Callback for updating sticky array
  * @param {Function} props.onUpdateItems - Callback for updating all items
  */
 const ListEditorTab = ({
@@ -43,7 +42,6 @@ const ListEditorTab = ({
   handleSortItems,
   handleAddItem,
   handleClearItems,
-  onUpdateSticky,
   onUpdateItems
 }) => {
   // State for active drag item
@@ -186,7 +184,7 @@ const ListEditorTab = ({
         setItemsText(newItemsText);
       }
     }
-  }, [items, sticky, onUpdateItems, onUpdateSticky, setItemsText]);
+  }, [items, sticky, onUpdateItems, setItemsText]);
   
   return (
     <div>

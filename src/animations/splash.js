@@ -91,7 +91,7 @@ export function splash({ elements, newOrder, positions, gridDimensions, gridRect
     
     // Store original styles to restore later
     let originalZIndex;
-    
+
     // Setup function to capture original styles
     cardTimeline.call(() => {
       originalZIndex = cardElement.style.zIndex;
@@ -111,21 +111,10 @@ export function splash({ elements, newOrder, positions, gridDimensions, gridRect
       ease: "bounce.out", // Bounce when hitting the bottom
       force3D: true
     });
-    
-    // Phase 2: Horizontal spread - cards spread out horizontally
+
+    // Phase 2: Gather - cards come back together
     cardTimeline.to(cardElement, {
-      x: spreadX,
-      y: splashBottomY + (Math.random() - 0.5) * 10, // Slight vertical variation
-      rotation: (Math.random() - 0.5) * 10, // Less rotation during spread
-      scale: 0.85 + Math.random() * 0.1, // Slight scale variation
-      duration: spreadDuration,
-      ease: "power1.out",
-      force3D: true
-    });
-    
-    // Phase 3: Gather - cards come back together
-    cardTimeline.to(cardElement, {
-      x: splashCenterX + (Math.random() - 0.5) * 20, // Slight randomness in gathering
+      x: splashCenterX + (Math.random() - 0.5) * 10, // Slight randomness in gathering
       y: splashBottomY - 10, // Slight upward movement as they gather
       rotation: 0,
       scale: 0.9,
@@ -133,8 +122,8 @@ export function splash({ elements, newOrder, positions, gridDimensions, gridRect
       ease: "power1.in",
       force3D: true
     });
-    
-    // Phase 4: Rise - cards splash upward
+
+    // Phase 3: Rise - cards splash upward
     cardTimeline.to(cardElement, {
       x: splashCenterX + (finalX - splashCenterX) * 0.3, // Start moving toward final x
       y: riseY,

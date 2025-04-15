@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useLayoutEffect, createRef } from 'react';
-import { useGSAP } from '@gsap/react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle, useLayoutEffect, createRef, useCallback } from 'react';
 import gsap from 'gsap';
 
 import { getRandomAnimation } from '../animations';
@@ -25,7 +24,7 @@ import { EFFECTIVE_CARD_WIDTH, EFFECTIVE_CARD_HEIGHT } from '../constants';
  * @param {Function} props.onReorderItem - Callback for reordering an item
  * @param {Object} ref - Forwarded ref for parent component to access methods
  */
-const CardGrid = forwardRef(({ 
+const CardGridComponent = forwardRef(({ 
   items, 
   sticky = [], 
   onReorder, 
@@ -67,7 +66,7 @@ const CardGrid = forwardRef(({
   }, []);
   
   // Calculate positions for cards in a grid layout
-  const calculatePositions = () => {
+  const calculatePositions = useCallback(() => {
     console.log('[CardGrid] Calculating positions. Grid Width:', gridDimensions.width, 'Items Length:', items.length);
     if (gridDimensions.width > 0 && items.length > 0) {
       // Use effective dimensions from constants (including margin)
@@ -118,7 +117,7 @@ const CardGrid = forwardRef(({
       return adjustedPositions;
     }
     return [];
-  };
+  }, [gridDimensions.width, items]);
   
   // Update positions when grid dimensions or items change
   useEffect(() => {
@@ -129,7 +128,7 @@ const CardGrid = forwardRef(({
         isMounted.current = true; // Mark as mounted after first position calculation
       }
     }
-  }, [items.length, gridDimensions, isAnimating]); // Only depend on items.length, not the entire items array
+  }, [items.length, gridDimensions, isAnimating, calculatePositions]);
   
   // Store previous items when they change
   useEffect(() => {
@@ -153,6 +152,7 @@ const CardGrid = forwardRef(({
         };
       }
     });
+
     return positions;
   };
   
@@ -271,6 +271,7 @@ const CardGrid = forwardRef(({
       });
       
       // For each card in the new order, calculate how it needs to move
+      // and move it back to its old position
       newOrder.forEach((oldIndex, newIndex) => {
         const cardElement = cardElements[oldIndex];
         if (!cardElement) return;
@@ -279,17 +280,10 @@ const CardGrid = forwardRef(({
         const oldPosition = cardPositionsRef.current[oldIndex];
         if (!oldPosition) return;
         
-        // Get the new position after React has updated the DOM
-        const newRect = cardElement.getBoundingClientRect();
-        
-        // Calculate the difference between old and new positions
-        const deltaX = oldPosition.rect.left - newRect.left;
-        const deltaY = oldPosition.rect.top - newRect.top;
-        
         // Immediately move the card back to its old position
         gsap.set(cardElement, {
-          x: deltaX,
-          y: deltaY
+          x: oldPosition.x,
+          y: oldPosition.y,
         });
       });
       
@@ -357,7 +351,7 @@ const CardGrid = forwardRef(({
     <div 
       id="card-grid"
       ref={gridRef}
-      className="card-grid relative w-full min-h-[400px] p-8 bg-gradient-to-b from-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700 overflow-hidden"
+      className="card-grid relative w-full min-h-[400px] p-8 bg-gradient-to-b from-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700 overflow-hidden z-1"
       aria-label="Card grid containing randomizable items"
       role="region"
       onDoubleClick={handleDoubleClick}
@@ -444,4 +438,4 @@ const CardGrid = forwardRef(({
   );
 });
 
-export default CardGrid;
+export default React.memo(CardGridComponent);
