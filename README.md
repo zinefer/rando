@@ -49,8 +49,7 @@ The application uses the URL hash fragment (`#`) to store the list state, allowi
 `#Item1,Item2->ExportVal2,📌Item3`
 
 - **`,` (Comma):** Separates individual list items.
-- **`->` (Arrow):** Separates the display `name` from the `export` value for items that have distinct values (e.g., `Item2->ExportVal2`). Simple string items won't have `->`.
-- **`📌` (Pin):** Prefixes an item to mark it as "sticky" (e.g., `📌Item3`).
+- **`->` (Arrow):** Separates the display `name` from the `export` value for items that have distinct values (e.g., `Item2->ExportVal2`).
 - **Encoding:** To ensure correctness, special characters (`,`, `->`, `📌`, and others) within item names or export values are automatically URL-encoded (e.g., `%2C` for a comma). This might make some parts less readable but guarantees the format works reliably.
 
 ### Settings Panel
@@ -89,6 +88,3 @@ npm run dev
 # Build for production
 npm run build
 ```
-
-## License
-This project is open source and available under the [MIT License](LICENSE).
