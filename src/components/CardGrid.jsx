@@ -53,7 +53,9 @@ const CardGridComponent = forwardRef(({
     console.log('[CardGrid] Grid Dimensions Effect running.');
     if (gridRef.current) {
       const updateDimensions = () => {
-        const { width, height } = gridRef.current.getBoundingClientRect();
+        // Prefer clientWidth/clientHeight to avoid fractional subpixel layout issues
+        const width = Math.max(0, Math.floor(gridRef.current.clientWidth));
+        const height = Math.max(0, Math.floor(gridRef.current.clientHeight));
         setGridDimensions({ width, height });
       };
       
@@ -74,7 +76,9 @@ const CardGridComponent = forwardRef(({
       const cardHeight = EFFECTIVE_CARD_HEIGHT; 
       
       // Calculate how many cards can fit in a row
-      const cardsPerRow = Math.max(1, Math.floor(gridDimensions.width / cardWidth));
+  // Add a tiny horizontal buffer to ensure we don't clip due to rounding or borders
+  const effectiveWidth = Math.max(0, gridDimensions.width - 6);
+  const cardsPerRow = Math.max(1, Math.floor(effectiveWidth / cardWidth));
       
       // Calculate positions for each card
       const newPositions = items.map((_, index) => {
@@ -86,6 +90,19 @@ const CardGridComponent = forwardRef(({
           y: row * cardHeight
         };
       });
+
+  // Determine required height to contain all rows of cards. Use EFFECTIVE_CARD_HEIGHT
+  const numRows = Math.ceil(items.length / cardsPerRow);
+  const requiredHeight = numRows * cardHeight;
+
+  // Account for vertical padding on the container (Tailwind p-8 = 2rem = 32px per side)
+  // so add the top+bottom padding so the inline minHeight truly contains cards.
+  const containerVerticalPadding = 32 * 2; // px
+  const totalRequiredHeight = requiredHeight + containerVerticalPadding;
+
+  // Expose the calculated height via state so the component can set an inline style
+  // on the container. Use the totalRequiredHeight which includes padding.
+  setGridDimensions(prev => ({ ...prev, requiredHeight: totalRequiredHeight }));
       
       // Check for and resolve any overlapping positions
       const positionMap = new Map(); // Map to track positions
@@ -351,7 +368,19 @@ const CardGridComponent = forwardRef(({
     <div 
       id="card-grid"
       ref={gridRef}
-      className="card-grid relative w-full min-h-[400px] p-8 bg-gradient-to-b from-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700 overflow-hidden z-1"
+      className="card-grid relative w-full min-h-[400px] p-8 bg-gradient-to-b from-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700 z-1"
+      style={{
+        // Only override the CSS min-h when our calculated requiredHeight is
+        // larger than the design min (400px). This prevents shrinking below
+        // the intended minimum and avoids the spurious scrollbar the user saw.
+        minHeight: (gridDimensions.requiredHeight && gridDimensions.requiredHeight > 400)
+          ? `${gridDimensions.requiredHeight}px`
+          : undefined,
+  // Allow the container to grow with content; avoid internal scrollbars when full
+  overflowY: 'visible',
+        // Keep horizontal overflow hidden to prevent layout shift
+        overflowX: 'hidden'
+      }}
       aria-label="Card grid containing randomizable items"
       role="region"
       onDoubleClick={handleDoubleClick}
