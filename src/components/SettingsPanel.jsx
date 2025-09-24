@@ -96,14 +96,30 @@ const SettingsPanel = ({
     }
   }, [isOpen, handleEscKey]);
   
-  // Update state when props change
+  // Update state when props change.
+  // Note: we also explicitly reset local state when the panel opens so that
+  // any unsaved changes are discarded if the user closed the panel without saving.
   useEffect(() => {
+    // Keep in sync while the panel is open or when props change externally
     setItemsText(itemsToText(items));
     setTemplateText(template);
     setIsTabSwitchAnimationEnabled(tabSwitchAnimation);
     setIsAutoCopyEnabled(autoCopy);
     setIsAnimateStickyCardsEnabled(animateStickyCards);
   }, [items, template, tabSwitchAnimation, autoCopy, animateStickyCards]);
+
+  // When the panel is opened, explicitly reset local editable state from props
+  // This ensures any unsaved edits from a previous open are discarded.
+  useEffect(() => {
+    if (isOpen) {
+      setItemsText(itemsToText(items));
+      setTemplateText(template);
+      setIsTabSwitchAnimationEnabled(tabSwitchAnimation);
+      setIsAutoCopyEnabled(autoCopy);
+      setIsAnimateStickyCardsEnabled(animateStickyCards);
+      setEnabledAnimationsState(getEnabledAnimations());
+    }
+  }, [isOpen]);
   
   // Handle saving changes
   const handleSave = () => {

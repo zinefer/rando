@@ -15,5 +15,5 @@ export const URL_CONSTANTS = {
 // Constants for UI display
 export const UI_CONSTANTS = {
   NAME_EXPORT_SEPARATOR: TEMPLATE_SEPARATOR,
-  NAME_EXPORT_SEPARATOR_PATTERN: /^(.+?)*->*(.+)$/
+  NAME_EXPORT_SEPARATOR_PATTERN: /^(.+?)->(.+)$/
 };
