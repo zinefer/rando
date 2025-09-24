@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { 
   DndContext, 
   closestCenter,
@@ -50,6 +50,11 @@ const ListEditorTab = ({
   const [activeIsSticky, setActiveIsSticky] = useState(false);
   const [isOverStickyTarget, setIsOverStickyTarget] = useState(false); // State for hover feedback
 
+  // Refs for syncing and autosizing
+  const lineNumbersRef = useRef(null);
+  const textareaRef = useRef(null);
+  const sharedScrollRef = useRef(null);
+
   // Set up sensors for drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -74,6 +79,26 @@ const ListEditorTab = ({
       setActiveIsSticky(sticky.includes(index));
     }
   }, [items, sticky]);
+
+  // Autosize textarea so the outer container handles scrolling (shared scroll)
+  const syncTextareaHeightFromElem = useCallback((el) => {
+    if (!el) return;
+    // reset then set to scrollHeight to fit content
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  const handleTextareaChange = useCallback((e) => {
+    const val = e.target.value;
+    if (typeof setItemsText === 'function') setItemsText(val);
+    // adjust height based on the live element
+    syncTextareaHeightFromElem(e.target);
+  }, [setItemsText, syncTextareaHeightFromElem]);
+
+  // Keep textarea sized when itemsText changes
+  useEffect(() => {
+    if (textareaRef.current) syncTextareaHeightFromElem(textareaRef.current);
+  }, [itemsText, syncTextareaHeightFromElem]);
 
   // Handle drag over event for feedback
   const handleDragOver = useCallback((event) => {
@@ -220,22 +245,54 @@ const ListEditorTab = ({
           One item per line. For different display and export values, use: "Display Name{TEMPLATE_SEPARATOR}Export Value"
         </p>
         
+        {/* Make the line numbers and textarea share a scrollable container so numbers don't overflow */}
         <div className="relative font-mono text-sm">
-          <div className="absolute top-0 left-0 w-8 bottom-1.5 bg-gray-800 border-r border-gray-700 flex flex-col items-center pt-2 text-gray-500 select-none">
-            {itemsText.split('\n').map((_, i) => (
-              <div key={i} className="w-full text-center text-xs leading-5">{i + 1}</div>
-            ))}
-          </div>
-          <textarea
-            value={itemsText}
-            onChange={(e) => setItemsText(e.target.value)}
-            className="w-full h-60 p-2 pl-10 bg-gray-800 border border-gray-700 rounded-md text-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            placeholder={`Enter items, one per line
+          <div className="w-full bg-gray-800 border border-transparent rounded-md" style={{ overflow: 'hidden', position: 'relative' }}>
+            <div
+              ref={sharedScrollRef}
+              className="flex w-full"
+              style={{ maxHeight: '240px', overflow: 'auto' }}
+            >
+              <div
+                ref={lineNumbersRef}
+                className="flex-shrink-0 w-8 text-gray-500 select-none bg-transparent"
+              >
+                <div className="pt-2">
+                  {itemsText.split('\n').map((_, i) => (
+                    <div key={i} className="w-full text-center text-xs leading-5">{i + 1}</div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex-1 p-2 bg-transparent">
+                <textarea
+                  ref={textareaRef}
+                  value={itemsText}
+                  onChange={handleTextareaChange}
+                  className="w-full p-0 bg-transparent border-0 text-gray-200 focus:outline-none focus:border-indigo-500 focus:ring-0"
+                  placeholder={`Enter items, one per line
 Example:
 Item 1
 Display Name${TEMPLATE_SEPARATOR}Export Value
 🎉`}
-          />
+                  style={{ resize: 'none', overflow: 'hidden' }}
+                />
+              </div>
+            </div>
+            {/* Fixed divider between gutter and content so it remains visible while scrolling */}
+            <div
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: '2rem', // matches the gutter width (w-8)
+                width: '1px',
+                background: '#374151', // tailwind border-gray-700
+                pointerEvents: 'none',
+              }}
+            />
+          </div>
         </div>
         
         <div className="flex justify-between text-xs text-gray-500 mt-1">
