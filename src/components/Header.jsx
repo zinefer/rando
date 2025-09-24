@@ -118,7 +118,8 @@ const Header = ({ onRandomize, onToggleSettings, isAnimating }) => {
         </div>
       </div>
       
-      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 z-10">
+  {/* Use a single-row layout with small gaps and allow wrapping only if needed */}
+  <div className="flex flex-row flex-wrap sm:flex-nowrap items-center gap-3 z-10">
         <button
           ref={randomizeButtonRef}
           className={`
