@@ -15,6 +15,7 @@ import { slotMachine } from './slotMachine';
 import { fallAndReveal } from './fallAndReveal';
 import { kaleidoscope } from './kaleidoscope';
 import { craneMachine } from './craneMachine';
+import { blastOff } from './blastOff';
 
 import { runAnimationWithOverflowControl } from '../utils/AnimationHelper';
 import { loadEnabledAnimations, saveEnabledAnimations } from '../utils/LocalStorageManager';
@@ -109,6 +110,13 @@ export const animationDefinitions = {
     name: 'Tornado',
     function: tornado,
     description: 'Cards swirl in a tornado pattern',
+    overflow: true
+  }
+  ,
+  blastOff: {
+    name: 'Blast Off',
+    function: blastOff,
+    description: 'Cards lift off like rockets',
     overflow: true
   }
 };

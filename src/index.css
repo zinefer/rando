@@ -135,3 +135,19 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #6366f1; /* indigo-500 */
 }
+
+/* blastOff smoke puff styling */
+.blastoff-smoke-puff {
+  filter: blur(6px);
+  opacity: 0.9;
+  transition: opacity 0.3s linear;
+  pointer-events: none;
+  transform-origin: center;
+  mix-blend-mode: screen;
+}
+
+/* Ensure fixed-position smoke puffs are above background but below UI chrome */
+.blastoff-smoke-puff {
+  z-index: 999; /* high but not likely to override modal UI */
+  will-change: left, top, opacity, transform;
+}
